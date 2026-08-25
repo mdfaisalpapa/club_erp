@@ -1,0 +1,62 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "autoname": "field:keyword",
+ "creation": "2026-05-16 05:23:18.806645",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "keyword",
+  "party_type",
+  "party"
+ ],
+ "fields": [
+  {
+   "fieldname": "keyword",
+   "fieldtype": "Data",
+   "label": "Keyword",
+   "unique": 1
+  },
+  {
+   "fieldname": "party_type",
+   "fieldtype": "Select",
+   "label": "Party Type",
+   "options": "Customer\nSupplier\nEmployee"
+  },
+  {
+   "fieldname": "party",
+   "fieldtype": "Dynamic Link",
+   "label": "Party",
+   "options": "party_type"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-08-26 04:57:11.650841",
+ "modified_by": "Administrator",
+ "module": "Club Erp",
+ "name": "Bank Match Rule",
+ "naming_rule": "By fieldname",
+ "owner": "md.faisalpapa@gmail.com",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

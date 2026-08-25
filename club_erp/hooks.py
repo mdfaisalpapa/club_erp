@@ -256,3 +256,10 @@ app_license = "mit"
 # List of apps whose translatable strings should be excluded from this app's translations.
 # ignore_translatable_strings_from = []
 
+fixtures = [
+    {"dt": "Custom Field", "filters": [["module", "=", "Club Erp"]]},
+    {"dt": "Property Setter", "filters": [["module", "=", "Club Erp"]]},
+    {"dt": "Server Script", "filters": [["module", "=", "Club Erp"]]},
+    {"dt": "Client Script", "filters": [["module", "=", "Club Erp"]]},
+    {"dt": "Custom DocPerm"} # This line captures all 73 permission overrides
+]
