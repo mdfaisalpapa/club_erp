@@ -1,0 +1,98 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "creation": "2026-08-26 06:12:26.630428",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "customer",
+  "selected_venue",
+  "venue_shift",
+  "guest_name",
+  "guest_contact_number",
+  "guest_id_proof",
+  "booking_notes",
+  "sales_order_reference",
+  "sales_invoice_reference"
+ ],
+ "fields": [
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "selected_venue",
+   "fieldtype": "Link",
+   "label": "Selected Venue",
+   "options": "Club Facility"
+  },
+  {
+   "fieldname": "venue_shift",
+   "fieldtype": "Select",
+   "label": "Venue Shift",
+   "options": "Shift 1 (Morning)\nShift 2 (Evening)\nFull Day"
+  },
+  {
+   "fieldname": "guest_name",
+   "fieldtype": "Data",
+   "label": "Guest Name"
+  },
+  {
+   "fieldname": "guest_contact_number",
+   "fieldtype": "Phone",
+   "label": "Guest Contact Number"
+  },
+  {
+   "fieldname": "guest_id_proof",
+   "fieldtype": "Data",
+   "label": "Guest ID Proof"
+  },
+  {
+   "fieldname": "booking_notes",
+   "fieldtype": "Small Text",
+   "label": "Booking Notes"
+  },
+  {
+   "fieldname": "sales_order_reference",
+   "fieldtype": "Link",
+   "label": "Sales Order reference",
+   "options": "Sales Order"
+  },
+  {
+   "fieldname": "sales_invoice_reference",
+   "fieldtype": "Link",
+   "label": "Sales Invoice Reference",
+   "options": "Sales Invoice"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-08-26 06:16:12.800258",
+ "modified_by": "Administrator",
+ "module": "Club Erp",
+ "name": "Facility Booking",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}
