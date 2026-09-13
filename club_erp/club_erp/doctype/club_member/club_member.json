@@ -12,6 +12,7 @@
   "original_join_date",
   "membership_plan",
   "membership_start_date",
+  "membership_expiry_date",
   "parent_institution",
   "family_members",
   "status"
@@ -65,12 +66,17 @@
    "fieldtype": "Select",
    "label": "Status",
    "options": "Active\nInactive\nSuspended"
+  },
+  {
+   "fieldname": "membership_expiry_date",
+   "fieldtype": "Date",
+   "label": "Membership Expiry Date"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-08-26 09:48:44.839916",
+ "modified": "2026-09-14 04:23:33.366286",
  "modified_by": "Administrator",
  "module": "Club Erp",
  "name": "Club Member",

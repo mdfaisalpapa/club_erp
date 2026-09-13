@@ -263,3 +263,10 @@ fixtures = [
     {"dt": "Client Script", "filters": [["module", "=", "Club Erp"]]},
     {"dt": "Custom DocPerm"} # This line captures all 73 permission overrides
 ]
+doc_events = {
+    "Club Member": {
+        "before_insert": "club_erp.events.club_member.before_insert",
+        "after_insert": "club_erp.events.club_member.after_insert",
+        "on_update": "club_erp.events.club_member.on_update"
+    }
+}
