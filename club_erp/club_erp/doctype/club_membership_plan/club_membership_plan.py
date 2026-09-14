@@ -1,4 +1,5 @@
 import frappe
+
 from frappe import _
 from frappe.model.document import Document
 from frappe.utils import flt
@@ -22,17 +23,21 @@ class ClubMembershipPlan(Document):
     def after_insert(self):
         """
         Create the ERPNext Item and its Item Price automatically
-        when a new Membership Plan is created.
+        for a genuinely new Membership Plan.
+
+        If membership_item is already supplied, it means an existing
+        Item is being linked to this Plan (such as during migration).
+        In that case, do NOT modify the existing Item Price.
         """
 
         if not self.membership_item:
             self.create_membership_item()
-
-        self.sync_membership_price()
+            self.sync_membership_price()
 
     def on_update(self):
         """
-        Keep the Item Price synchronized with the Membership Plan.
+        Keep the Item Price synchronized with the Membership Plan
+        after the Plan has been created.
         """
 
         if not self.membership_item:
@@ -44,43 +49,37 @@ class ClubMembershipPlan(Document):
     # VALIDATION
     # ------------------------------------------------------------------
 
-    def validate_customer_group_price_list(self):
+    def validate_membership_rules(self):
         """
-        Every Membership Plan must have a Customer Group with
-        a valid Default Selling Price List.
+        Validate membership-specific business rules.
+
+        Validity:
+            0 = lifetime membership
+            >0 = number of years
+
+        Institutional membership:
+            Must have at least one nominee.
+
+        Non-institutional membership:
+            Nominees are always zero.
+
+        Membership Rate:
+            Zero is permitted.
+            Negative values are not permitted.
         """
 
-        # ------------------------------------------------------------
-        # Customer Group is part of the pricing identity of a
-        # Membership Plan. Do not allow it to change after the
-        # Membership Item has been created.
-        # ------------------------------------------------------------
+        if self.validity_in_years is None:
+            frappe.throw(
+                _("Validity in Years is mandatory.")
+            )
 
-        if self.membership_item:
+        if flt(self.validity_in_years) < 0:
+            frappe.throw(
+                _("Validity in Years cannot be negative.")
+            )
 
-            old_doc = self.get_doc_before_save()
+        if self.is_institutional:
 
-            if (
-                old_doc
-                and old_doc.customer_group != self.customer_group
-            ):
-
-                frappe.throw(
-                    _(
-                        "Customer Group cannot be changed after "
-                        "the Membership Item has been created."
-                    )
-                )
-
-        if not self.customer_group:
-            frappe.throw(_("Customer Group is mandatory."))
-
-
-        # Non-institutional memberships cannot have nominees.
-        if not self.is_institutional:
-            self.allowed_nominees = 0
-
-        else:
             if flt(self.allowed_nominees) <= 0:
                 frappe.throw(
                     _(
@@ -89,13 +88,16 @@ class ClubMembershipPlan(Document):
                     )
                 )
 
-        # 0 means lifetime membership.
-        if flt(self.validity_in_years) < 0:
+        else:
+
+            # Non-institutional memberships cannot have nominees.
+            self.allowed_nominees = 0
+
+        if self.membership_rate is None:
             frappe.throw(
-                _("Validity in Years cannot be negative.")
+                _("Membership Rate is mandatory.")
             )
 
-        # Allow zero in case a free membership plan is required.
         if flt(self.membership_rate) < 0:
             frappe.throw(
                 _("Membership Rate cannot be negative.")
@@ -106,13 +108,19 @@ class ClubMembershipPlan(Document):
         Item Code is supplied by the user and becomes the ERPNext
         Item Code.
 
-        Once the Item has been created, the Item Code cannot be changed.
+        Once the Membership Item has been created, Item Code cannot
+        be changed.
         """
 
         if not self.item_code:
-            frappe.throw(_("Item Code is mandatory."))
+            frappe.throw(
+                _("Item Code is mandatory.")
+            )
 
-        # Existing plan: ensure Item Code has not been changed.
+        # --------------------------------------------------------------
+        # Existing Plan
+        # --------------------------------------------------------------
+
         if self.membership_item:
 
             linked_item_code = frappe.db.get_value(
@@ -131,7 +139,10 @@ class ClubMembershipPlan(Document):
 
             return
 
-        # New plan: Item Code must not already exist.
+        # --------------------------------------------------------------
+        # New Plan
+        # --------------------------------------------------------------
+
         existing_item = frappe.db.get_value(
             "Item",
             self.item_code,
@@ -143,14 +154,17 @@ class ClubMembershipPlan(Document):
 
         existing_plan = frappe.db.get_value(
             "Club Membership Plan",
-            {"membership_item": existing_item},
+            {
+                "membership_item": existing_item
+            },
             "name"
         )
 
         if existing_plan:
             frappe.throw(
                 _(
-                    "Item {0} is already linked to Club Membership Plan {1}."
+                    "Item {0} is already linked to Club Membership "
+                    "Plan {1}."
                 ).format(
                     frappe.bold(self.item_code),
                     frappe.bold(existing_plan)
@@ -159,7 +173,8 @@ class ClubMembershipPlan(Document):
 
         frappe.throw(
             _(
-                "Item {0} already exists. Please use a different Item Code."
+                "Item {0} already exists. Please use a different "
+                "Item Code."
             ).format(
                 frappe.bold(self.item_code)
             )
@@ -167,28 +182,68 @@ class ClubMembershipPlan(Document):
 
     def validate_customer_group_price_list(self):
         """
-        Every Membership Plan must have a Customer Group with
-        a valid Default Selling Price List.
+        Validate Customer Group and its Default Selling Price List.
+
+        Customer Group is part of the pricing identity of a
+        Membership Plan and cannot be changed after the Membership
+        Item has been created.
         """
 
+        # --------------------------------------------------------------
+        # Customer Group is mandatory
+        # --------------------------------------------------------------
+
         if not self.customer_group:
-            frappe.throw(_("Customer Group is mandatory."))
+            frappe.throw(
+                _("Customer Group is mandatory.")
+            )
+
+        # --------------------------------------------------------------
+        # Customer Group cannot change after Item creation
+        # --------------------------------------------------------------
+
+        if self.membership_item:
+
+            old_doc = self.get_doc_before_save()
+
+            if (
+                old_doc
+                and old_doc.customer_group != self.customer_group
+            ):
+                frappe.throw(
+                    _(
+                        "Customer Group cannot be changed after "
+                        "the Membership Item has been created."
+                    )
+                )
+
+        # --------------------------------------------------------------
+        # Get Customer Group
+        # --------------------------------------------------------------
 
         group = frappe.db.get_value(
             "Customer Group",
             self.customer_group,
-            ["is_group", "default_price_list"],
+            [
+                "is_group",
+                "default_price_list"
+            ],
             as_dict=True
         )
 
         if not group:
             frappe.throw(
-                _("Customer Group {0} does not exist.").format(
+                _(
+                    "Customer Group {0} does not exist."
+                ).format(
                     frappe.bold(self.customer_group)
                 )
             )
 
-        # Membership plans should point to an actual leaf Customer Group.
+        # --------------------------------------------------------------
+        # Must be a leaf Customer Group
+        # --------------------------------------------------------------
+
         if group.is_group:
             frappe.throw(
                 _(
@@ -199,41 +254,59 @@ class ClubMembershipPlan(Document):
                 )
             )
 
+        # --------------------------------------------------------------
+        # Default Price List
+        # --------------------------------------------------------------
+
         price_list = group.default_price_list
 
         if not price_list:
             frappe.throw(
                 _(
-                    "Customer Group {0} does not have a Default Price List."
+                    "Customer Group {0} does not have a "
+                    "Default Price List."
                 ).format(
                     frappe.bold(self.customer_group)
                 )
             )
 
+        # --------------------------------------------------------------
+        # Validate Price List
+        # --------------------------------------------------------------
+
         price_list_details = frappe.db.get_value(
             "Price List",
             price_list,
-            ["enabled", "selling"],
+            [
+                "enabled",
+                "selling"
+            ],
             as_dict=True
         )
 
         if not price_list_details:
             frappe.throw(
-                _("Price List {0} does not exist.").format(
+                _(
+                    "Price List {0} does not exist."
+                ).format(
                     frappe.bold(price_list)
                 )
             )
 
         if not price_list_details.enabled:
             frappe.throw(
-                _("Price List {0} is disabled.").format(
+                _(
+                    "Price List {0} is disabled."
+                ).format(
                     frappe.bold(price_list)
                 )
             )
 
         if not price_list_details.selling:
             frappe.throw(
-                _("Price List {0} is not a Selling Price List.").format(
+                _(
+                    "Price List {0} is not a Selling Price List."
+                ).format(
                     frappe.bold(price_list)
                 )
             )
@@ -259,25 +332,33 @@ class ClubMembershipPlan(Document):
 
         item = frappe.new_doc("Item")
 
+        # --------------------------------------------------------------
         # Basic Item identity
+        # --------------------------------------------------------------
+
         item.item_code = self.item_code
         item.item_name = self.plan_name
 
-        # Membership Items are service/non-stock Items.
+        # --------------------------------------------------------------
+        # Membership Items are service/non-stock Items
+        # --------------------------------------------------------------
+
         item.item_group = self.ITEM_GROUP
         item.stock_uom = self.ITEM_UOM
         item.is_stock_item = 0
         item.is_sales_item = 1
         item.is_purchase_item = 0
 
-        # HSN/SAC used by the existing Membership Items.
+        # --------------------------------------------------------------
+        # HSN/SAC
+        # --------------------------------------------------------------
+
         item.gst_hsn_code = self.ITEM_HSN
 
-        # Do not create a Standard Selling Item Price.
-        # Actual membership pricing is handled through Item Price.
-        #
-        # Your current Item customization makes Standard Rate mandatory,
-        # therefore we provide 0 and bypass that mandatory requirement.
+        # --------------------------------------------------------------
+        # Current Item customization makes Standard Rate mandatory
+        # --------------------------------------------------------------
+
         item.standard_rate = 0
 
         item.insert(
@@ -285,9 +366,10 @@ class ClubMembershipPlan(Document):
             ignore_mandatory=True
         )
 
-        # Update the in-memory document as well as the database.
+        # Update in-memory document
         self.membership_item = item.name
 
+        # Update database
         self.db_set(
             "membership_item",
             item.name,
@@ -310,12 +392,12 @@ class ClubMembershipPlan(Document):
 
     def get_membership_price_list(self):
         """
-        Get the Price List from:
+        Get the Price List through:
 
             Membership Plan
-                ↓
+                    ↓
             Customer Group
-                ↓
+                    ↓
             Default Price List
         """
 
@@ -328,7 +410,8 @@ class ClubMembershipPlan(Document):
         if not price_list:
             frappe.throw(
                 _(
-                    "Customer Group {0} does not have a Default Price List."
+                    "Customer Group {0} does not have a "
+                    "Default Price List."
                 ).format(
                     frappe.bold(self.customer_group)
                 )
@@ -341,6 +424,7 @@ class ClubMembershipPlan(Document):
         Create or update the Item Price for this Membership Plan.
 
         One Membership Plan has:
+
             - one Customer Group
             - one Default Price List
             - one Membership Rate
@@ -352,14 +436,13 @@ class ClubMembershipPlan(Document):
 
         price_list = self.get_membership_price_list()
 
-        # Find the selling Item Price for:
-        # Item + Price List + UOM.
         existing_price = frappe.db.get_value(
             "Item Price",
             {
                 "item_code": self.membership_item,
                 "price_list": price_list,
                 "uom": self.ITEM_UOM,
+                "selling": 1,
             },
             "name"
         )
