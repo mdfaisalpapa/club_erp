@@ -1,9 +1,170 @@
-# Copyright (c) 2026, Mohammed Faisal and contributors
-# For license information, please see license.txt
-
-# import frappe
+import frappe
 from frappe.model.document import Document
-
+from frappe.utils import today, date_diff
+from frappe.model.naming import make_autoname
 
 class ClubMember(Document):
-	pass
+
+    def autoname(self):
+        # Fetch the naming series directly from the selected Customer Group
+        if self.customer_group and not self.naming_series:
+            series = frappe.db.get_value("Customer Group", self.customer_group, "custom_naming_series")
+            if series:
+                self.naming_series = series
+        
+        # Fallback to standard Frappe autoname behavior if series is established
+        if self.naming_series:
+            self.name = make_autoname(self.naming_series)
+
+    def validate(self):
+        self.validate_nominee_quota()
+
+    def validate_nominee_quota(self):
+        # Server-side validation to prevent quota bypasses
+        if self.customer_group == 'Institutional Nominee' and self.parent_institution:
+            parent_plan = frappe.db.get_value('Club Member', self.parent_institution, 'membership_plan')
+            if not parent_plan:
+                return
+                
+            max_limit = frappe.db.get_value('Item', parent_plan, 'custom_allowed_nominees') or 0
+            
+            active_count = frappe.db.count('Club Member', filters={
+                'parent_institution': self.parent_institution,
+                'status': ['!=', 'Inactive'],
+                'name': ['!=', self.name] if not self.is_new() else None
+            })
+            
+            if active_count >= max_limit:
+                frappe.throw(f"Institution quota full. Maximum {max_limit} active nominees allowed.")
+
+    def before_insert(self):
+        if getattr(self.flags, "is_migration", False): 
+            return
+            
+        if self.customer_group == "Games Member":
+            frappe.throw("<b>Enrollment Closed:</b> The 'Games Member' membership is not currently being offered to new members.")
+
+        # Auto-create the core Customer ledger
+        new_customer = frappe.new_doc("Customer")
+        new_customer.customer_name = self.member_name
+        new_customer.customer_group = self.customer_group
+        new_customer.insert(ignore_permissions=True)
+        
+        # Link the newly created Customer ID to this Club Member profile
+        self.customer = new_customer.name
+
+    def after_insert(self):
+        if getattr(self.flags, "is_migration", False): 
+            return
+            
+        valid_groups = [
+            "Institutional Member", "Institutional Nominee", "Other Government Officer", 
+            "Private Member", "Railway Life Member", "Railway Non Life Member", "Railway Ward Member"
+        ]
+
+        if self.customer_group in valid_groups:
+            self.generate_joining_invoice()
+            self.generate_recurring_subscription()
+
+    def generate_joining_invoice(self):
+        if not self.membership_plan: 
+            return
+            
+        si = frappe.new_doc("Sales Invoice")
+        si.customer = self.customer
+        si.set_posting_time = 1
+        si.append("items", {"item_code": self.membership_plan, "qty": 1})
+        si.set_missing_values()
+        si.calculate_taxes_and_totals()
+        si.insert(ignore_permissions=True)
+        frappe.msgprint(f"Joining Fee Invoice Generated: <a href='/app/sales-invoice/{si.name}'><b>{si.name}</b></a>", indicator="green")
+
+    def generate_recurring_subscription(self):
+        age = 0
+        if self.date_of_birth:
+            age = int(date_diff(today(), self.date_of_birth) / 365.25)
+
+        cgf_plan_name = None
+        non_railway_groups = ["Institutional Member", "Institutional Nominee", "Other Government Officer", "Private Member", "Railway Ward Member"]
+
+        if self.customer_group in non_railway_groups:
+            cgf_plan_name = "CGF - Non Railway Member 60+" if age >= 60 else "CGF - Non Railway Member"
+        elif self.customer_group == "Railway Life Member":
+            if age >= 80: cgf_plan_name = "CGF - Railway Sr Citizen 80+"
+            elif age >= 65: cgf_plan_name = "CGF - Railway Sr Citizen 65+"
+            else: cgf_plan_name = "CGF - Railway Life Member"
+        elif self.customer_group == "Railway Non Life Member":
+            cgf_plan_name = "CGF - Railway Non Life Member"
+
+        if cgf_plan_name:
+            sub = frappe.new_doc("Subscription")
+            sub.party_type = "Customer"
+            sub.party = self.customer
+            sub.start_date = self.membership_start_date or today()
+            sub.generate_invoice = 1 
+            sub.append("plans", {"plan": cgf_plan_name, "qty": 1})
+            sub.insert(ignore_permissions=True)
+            frappe.msgprint(f"Recurring Subscription Generated: <a href='/app/subscription/{sub.name}'><b>{sub.name}</b></a>", indicator="green")
+
+    def on_update(self):
+        if getattr(self.flags, "is_migration", False) or not self.has_value_changed("status"): 
+            return
+
+        is_disabled = 1 if self.status in ["Inactive", "Suspended"] else 0
+        if self.customer:
+            frappe.db.set_value("Customer", self.customer, "disabled", is_disabled)
+        
+        FROZEN_PLAN_NAME = "Frozen - Private Member"
+        existing_subs = frappe.get_all("Subscription", filters={"party": self.customer}, fields=["name", "status"])
+        has_frozen = False
+
+        for sub_data in existing_subs:
+            sub_doc = frappe.get_doc("Subscription", sub_data.name)
+            is_frozen_sub = any(p.plan == FROZEN_PLAN_NAME for p in sub_doc.plans)
+            
+            if is_frozen_sub: 
+                has_frozen = True
+
+            if self.status in ["Inactive", "Suspended"] and sub_doc.status == "Active":
+                frappe.db.set_value("Subscription", sub_doc.name, "status", "Paused")
+            elif self.status == "Frozen":
+                if not is_frozen_sub and sub_doc.status == "Active":
+                    frappe.db.set_value("Subscription", sub_doc.name, "status", "Paused")
+                elif is_frozen_sub and sub_doc.status == "Paused":
+                    frappe.db.set_value("Subscription", sub_doc.name, "status", "Active")
+            elif self.status == "Active":
+                if is_frozen_sub and sub_doc.status == "Active":
+                    frappe.db.set_value("Subscription", sub_doc.name, "status", "Paused")
+                elif not is_frozen_sub and sub_doc.status == "Paused":
+                    frappe.db.set_value("Subscription", sub_doc.name, "status", "Active")
+
+        if self.status == "Frozen" and not has_frozen:
+            new_frozen_sub = frappe.new_doc("Subscription")
+            new_frozen_sub.party_type = "Customer"
+            new_frozen_sub.party = self.customer
+            new_frozen_sub.start_date = today()
+            new_frozen_sub.generate_invoice = 1 
+            new_frozen_sub.append("plans", {"plan": FROZEN_PLAN_NAME, "qty": 1})
+            new_frozen_sub.insert(ignore_permissions=True)
+            frappe.msgprint(f"Generated new Frozen Subscription: <b>{new_frozen_sub.name}</b>", indicator="green")
+
+    
+@frappe.whitelist()
+def peek_next_id(customer_group):
+    # Fetch the template string (e.g., '3####')
+    series = frappe.db.get_value("Customer Group", customer_group, "custom_naming_series")
+    
+    if not series or "#" not in series:
+        return ""
+        
+    # Extract the prefix ('3') and the number of digits (4)
+    prefix = series.split("#")[0]
+    hash_count = series.count("#")
+    
+    # Bypass ORM to query the tabSeries system table directly without sorting
+    query = frappe.db.sql("SELECT current FROM `tabSeries` WHERE name = %s", prefix)
+    current = query[0][0] if query else 0
+    next_num = int(current) + 1
+    
+    # Format the preview string (e.g., '30001')
+    return f"{prefix}{str(next_num).zfill(hash_count)}"

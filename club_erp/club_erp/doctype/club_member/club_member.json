@@ -8,6 +8,7 @@
  "engine": "InnoDB",
  "field_order": [
   "customer",
+  "naming_series",
   "member_name",
   "customer_group",
   "date_of_birth",
@@ -98,12 +99,18 @@
    "fieldname": "is_institution",
    "fieldtype": "Check",
    "label": "Is Institution?"
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Naming Series"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-09-14 05:53:12.340178",
+ "modified": "2026-09-14 06:33:02.128605",
  "modified_by": "Administrator",
  "module": "Club Erp",
  "name": "Club Member",

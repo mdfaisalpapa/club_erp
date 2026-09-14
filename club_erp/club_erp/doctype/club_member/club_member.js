@@ -8,7 +8,23 @@ frappe.ui.form.on('Club Member', {
 
     customer_group: function(frm) {
         // Only automate these settings for new records
-        if (!frm.is_new() || !frm.doc.customer_group) return;
+        if (!frm.is_new() || !frm.doc.customer_group) {
+            frm.set_df_property('customer_group', 'description', '');
+            return;
+        }
+
+        // --- FETCH AND DISPLAY NEXT ID PREVIEW ---
+        frappe.call({
+            method: "club_erp.club_erp.doctype.club_member.club_member.peek_next_id",
+            args: { customer_group: frm.doc.customer_group },
+            callback: function(r) {
+                if (r.message) {
+                    frm.set_df_property('customer_group', 'description', `Next ID Sequence: <span style="color:green; font-weight:bold;">${r.message}</span>`);
+                } else {
+                    frm.set_df_property('customer_group', 'description', '');
+                }
+            }
+        });
 
         // Reset dependent fields on group change
         frm.set_value('membership_plan', '');
@@ -171,6 +187,12 @@ frappe.ui.form.on('Club Member', {
     },
 
     refresh: function(frm) {
+        // --- LOCK-DOWN METHOD: Prevent name changes after initial save ---
+        if (!frm.is_new()) {
+            frm.set_df_property('member_name', 'read_only', 1);
+        }
+
+        // --- Existing Nominee Retirement Logic ---
         if (frm.doc.customer_group === 'Institutional Nominee' && frm.doc.status === 'Active' && !frm.is_new()) {
             frm.add_custom_button(__('Retire Nominee'), function() {
                 frappe.confirm('Retire this nominee? This sets the status to Inactive and frees the institutional quota slot.', function() {
