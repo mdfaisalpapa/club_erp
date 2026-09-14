@@ -3,6 +3,8 @@ from frappe.utils import today, date_diff
 
 def before_insert(doc, method=None):
     # --- NEW RULE: BLOCK CLOSED MEMBERSHIPS ---
+    if getattr(doc.flags, "is_migration", False):
+        return
     if doc.customer_group == "Games Member":
         frappe.throw("<b>Enrollment Closed:</b> The 'Games Member' membership is not currently being offered to new members. Please select a different Customer Group.")
 
@@ -17,6 +19,8 @@ def before_insert(doc, method=None):
     doc.customer = new_customer.name
 
 def after_insert(doc, method=None):
+    if getattr(doc.flags, "is_migration", False):
+        return
     valid_member_groups = [
         "Institutional Member", "Institutional Nominee",
         "Other Government Officer", "Private Member", "Railway Life Member",
@@ -97,22 +101,74 @@ def after_insert(doc, method=None):
             )
 
 def on_update(doc, method=None):
-    # --- LIFECYCLE MANAGEMENT ---
-    if doc.has_value_changed("disabled"):
-        
-        if doc.customer:
-            frappe.db.set_value("Customer", doc.customer, "disabled", doc.disabled)
-        
-        # SCENARIO 1: Officer leaves
-        if doc.disabled == 1:
-            active_subs = frappe.get_all("Subscription", filters={"party": doc.customer, "status": "Active"})
-            for sub in active_subs:
-                frappe.db.set_value("Subscription", sub.name, "status", "Paused")
-                frappe.msgprint(f"Subscription {sub.name} automatically Paused because member was disabled.")
+    # ESCAPE HATCH: Stand down during historical data porting
+    if getattr(doc.flags, "is_migration", False):
+        return
 
-        # SCENARIO 2: Officer returns
-        elif doc.disabled == 0:
-            paused_subs = frappe.get_all("Subscription", filters={"party": doc.customer, "status": "Paused"})
-            for sub in paused_subs:
-                frappe.db.set_value("Subscription", sub.name, "status", "Active")
-                frappe.msgprint(f"Subscription {sub.name} automatically Resumed. Welcome back!")
+    # --- LIFECYCLE & BILLING MANAGEMENT ---
+    if doc.has_value_changed("status"):
+        
+        # 1. Sync the core Customer ledger 'disabled' status
+        # If Inactive or Suspended, the ledger is locked. If Active or Frozen, the ledger must remain open to generate invoices.
+        is_disabled = 1 if doc.status in ["Inactive", "Suspended"] else 0
+        if doc.customer:
+            frappe.db.set_value("Customer", doc.customer, "disabled", is_disabled)
+        
+        FROZEN_PLAN_NAME = "Frozen - Private Member"
+        
+        # 2. Fetch all existing Subscriptions for this member
+        existing_subs = frappe.get_all("Subscription", 
+            filters={"party": doc.customer}, 
+            fields=["name", "status"]
+        )
+
+        has_frozen_sub_history = False
+
+        # 3. Intelligent Subscription Toggling
+        for sub_data in existing_subs:
+            sub_doc = frappe.get_doc("Subscription", sub_data.name)
+            
+            # Check if this specific subscription is the Frozen plan
+            is_frozen_sub = any(p.plan == FROZEN_PLAN_NAME for p in sub_doc.plans)
+            
+            if is_frozen_sub:
+                has_frozen_sub_history = True
+
+            # SCENARIO A: Complete Halt (Inactive / Suspended)
+            if doc.status in ["Inactive", "Suspended"]:
+                if sub_doc.status == "Active":
+                    frappe.db.set_value("Subscription", sub_doc.name, "status", "Paused")
+                    frappe.msgprint(f"Subscription {sub_doc.name} Paused due to {doc.status} status.")
+            
+            # SCENARIO B: Member is Frozen (Lower Fee)
+            elif doc.status == "Frozen":
+                if not is_frozen_sub and sub_doc.status == "Active":
+                    frappe.db.set_value("Subscription", sub_doc.name, "status", "Paused")
+                elif is_frozen_sub and sub_doc.status == "Paused":
+                    frappe.db.set_value("Subscription", sub_doc.name, "status", "Active")
+                    frappe.msgprint(f"Frozen Subscription {sub_doc.name} Resumed.")
+            
+            # SCENARIO C: Member returns to normal Active billing
+            elif doc.status == "Active":
+                if is_frozen_sub and sub_doc.status == "Active":
+                    frappe.db.set_value("Subscription", sub_doc.name, "status", "Paused")
+                elif not is_frozen_sub and sub_doc.status == "Paused":
+                    frappe.db.set_value("Subscription", sub_doc.name, "status", "Active")
+                    frappe.msgprint(f"Standard Subscription {sub_doc.name} Resumed. Welcome back!")
+
+        # 4. Generate the Frozen Subscription if it doesn't exist yet
+        if doc.status == "Frozen" and not has_frozen_sub_history:
+            new_frozen_sub = frappe.new_doc("Subscription")
+            new_frozen_sub.party_type = "Customer"
+            new_frozen_sub.party = doc.customer
+            new_frozen_sub.custom_member_name = doc.name 
+            new_frozen_sub.start_date = today()
+            new_frozen_sub.generate_invoice = 1 
+            
+            new_frozen_sub.append("plans", {
+                "plan": FROZEN_PLAN_NAME,
+                "qty": 1
+            })
+            
+            new_frozen_sub.insert(ignore_permissions=True)
+            frappe.msgprint(f"Generated new Frozen Subscription: <a href='/app/subscription/{new_frozen_sub.name}'>{new_frozen_sub.name}</a>", indicator="green")
