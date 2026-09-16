@@ -1,762 +1,167 @@
 frappe.ui.form.on("Club Member", {
-
-    // ---------------------------------------------------------------
-    // SETUP
-    // ---------------------------------------------------------------
-
-    setup: function(frm) {
-
-        // Membership Plan is now a Link to Club Membership Plan.
-        // Filter directly using the Plan's Customer Group.
-        frm.set_query("membership_plan", function() {
-
-            if (!frm.doc.customer_group) {
-                return {};
-            }
-
-            return {
-                filters: {
-                    customer_group: frm.doc.customer_group,
-                    enabled: 1
-                }
-            };
-        });
-
-        // Parent Institution should only show Institutional Members.
-        frm.set_query("parent_institution", function() {
-
-            return {
-                filters: {
-                    customer_group: "Institutional Member",
-                    status: ["not in", ["Inactive", "Suspended"]]
-                }
-            };
-        });
-    },
-
-
-    // ---------------------------------------------------------------
-    // CUSTOMER GROUP
-    // ---------------------------------------------------------------
-
-    customer_group: function(frm) {
-
-        if (!frm.is_new()) {
-            return;
-        }
-
-        if (!frm.doc.customer_group) {
-            frm.set_df_property(
-                "customer_group",
-                "description",
-                ""
-            );
-
-            return;
-        }
-
-        // -----------------------------------------------------------
-        // NEXT MEMBER NUMBER PREVIEW
-        // -----------------------------------------------------------
-
-        frappe.call({
-            method:
-                "club_erp.club_erp.doctype.club_member.club_member.peek_next_id",
-
-            args: {
-                customer_group: frm.doc.customer_group
-            },
-
-            callback: function(r) {
-
-                if (r.message) {
-
-                    frm.set_df_property(
-                        "customer_group",
-                        "description",
-                        `Next ID Sequence:
-                        <span style="font-weight:bold;">
-                            ${r.message}
-                        </span>`
-                    );
-
-                } else {
-
-                    frm.set_df_property(
-                        "customer_group",
-                        "description",
-                        ""
-                    );
-                }
-            }
-        });
-
-
-        // -----------------------------------------------------------
-        // RESET DEPENDENT FIELDS
-        // -----------------------------------------------------------
-
-        frm.set_value("membership_plan", "");
-        frm.set_value("membership_expiry_date", "");
-        frm.set_value("membership_start_date", "");
-        frm.set_value("original_join_date", "");
-        frm.set_value("parent_institution", "");
-        frm.set_value("is_institution", 0);
-
-
-        // -----------------------------------------------------------
-        // MEMBER / NON-MEMBER
-        // -----------------------------------------------------------
-
-        const member_groups = [
-            "Institutional Member",
-            "Institutional Nominee",
-            "Other Government Officer",
-            "Private Member",
-            "Railway Life Member",
-            "Railway Non Life Member",
-            "Railway Ward Member"
-        ];
-
-        const is_member =
-            member_groups.includes(frm.doc.customer_group);
-
-        const is_institution =
-            frm.doc.customer_group === "Institutional Member";
-
-        frm.set_value(
-            "is_institution",
-            is_institution ? 1 : 0
-        );
-
-
-        // -----------------------------------------------------------
-        // MEMBERSHIP FIELD VISIBILITY
-        // -----------------------------------------------------------
-
-        if (is_member) {
-
-            frm.set_df_property(
-                "membership_plan",
-                "hidden",
-                0
-            );
-
-            frm.set_df_property(
-                "membership_plan",
-                "reqd",
-                1
-            );
-
-            frm.set_df_property(
-                "membership_start_date",
-                "hidden",
-                0
-            );
-
-            frm.set_df_property(
-                "membership_start_date",
-                "reqd",
-                1
-            );
-
-            const is_nominee =
-                frm.doc.customer_group ===
-                "Institutional Nominee";
-
-            frm.set_df_property(
-                "membership_plan",
-                "read_only",
-                is_nominee ? 1 : 0
-            );
-
-            frm.set_df_property(
-                "membership_start_date",
-                "read_only",
-                is_nominee ? 1 : 0
-            );
-
-            frm.set_df_property(
-                "membership_expiry_date",
-                "read_only",
-                is_nominee ? 1 : 0
-            );
-
-            frm.set_df_property(
-                "original_join_date",
-                "read_only",
-                is_nominee ? 1 : 0
-            );
-
-        } else {
-
-            frm.set_df_property(
-                "membership_plan",
-                "hidden",
-                1
-            );
-
-            frm.set_df_property(
-                "membership_plan",
-                "reqd",
-                0
-            );
-
-            frm.set_df_property(
-                "membership_start_date",
-                "hidden",
-                1
-            );
-
-            frm.set_df_property(
-                "membership_start_date",
-                "reqd",
-                0
-            );
-
-            frm.set_df_property(
-                "membership_expiry_date",
-                "hidden",
-                1
-            );
-
-            frm.set_df_property(
-                "membership_expiry_date",
-                "reqd",
-                0
-            );
-        }
-    },
-
-
-    // ---------------------------------------------------------------
-    // PARENT INSTITUTION
-    // ---------------------------------------------------------------
-
-    parent_institution: function(frm) {
-
-        if (!frm.is_new()) {
-            return;
-        }
-
-        if (
-            frm.doc.customer_group !==
-            "Institutional Nominee"
-        ) {
-            return;
-        }
-
-        if (!frm.doc.parent_institution) {
-            return;
-        }
-
-
-        frappe.db.get_doc(
-            "Club Member",
-            frm.doc.parent_institution
-        ).then(parent => {
-
-            if (!parent) {
-                return;
-            }
-
-            const parent_plan =
-                parent.membership_plan;
-
-            const parent_start =
-                parent.membership_start_date;
-
-            const parent_expiry =
-                parent.membership_expiry_date;
-
-
-            // -------------------------------------------------------
-            // Parent must have a Membership Plan
-            // -------------------------------------------------------
-
-            if (!parent_plan) {
-
-                frappe.msgprint({
-                    title: __("Error"),
-                    indicator: "red",
-                    message:
-                        "The selected Parent Institution does not " +
-                        "have a Membership Plan."
-                });
-
-                frm.set_value(
-                    "parent_institution",
-                    ""
-                );
-
-                return;
-            }
-
-
-            // -------------------------------------------------------
-            // Inherit Plan and dates
-            // -------------------------------------------------------
-
-            frm.set_value(
-                "membership_plan",
-                parent_plan
-            );
-
-            if (parent_start) {
-
-                frm.set_value(
-                    "membership_start_date",
-                    parent_start
-                );
-
-                frm.set_value(
-                    "original_join_date",
-                    parent_start
-                );
-            }
-
-            if (parent_expiry) {
-
-                frm.set_value(
-                    "membership_expiry_date",
-                    parent_expiry
-                );
-
-                frm.set_df_property(
-                    "membership_expiry_date",
-                    "hidden",
-                    0
-                );
-            }
-
-
-            // -------------------------------------------------------
-            // Get nominee limit directly from Club Membership Plan
-            // -------------------------------------------------------
-
-            frappe.db.get_value(
-                "Club Membership Plan",
-                parent_plan,
-                [
-                    "allowed_nominees",
-                    "enabled",
-                    "is_institutional"
-                ]
-            ).then(plan_result => {
-
-                const plan =
-                    plan_result.message;
-
-                if (!plan) {
-
-                    frappe.msgprint({
-                        title: __("Error"),
-                        indicator: "red",
-                        message:
-                            "The selected Membership Plan could " +
-                            "not be found."
-                    });
-
-                    frm.set_value(
-                        "parent_institution",
-                        ""
-                    );
-
-                    return;
-                }
-
-
-                if (!plan.enabled) {
-
-                    frappe.msgprint({
-                        title: __("Error"),
-                        indicator: "red",
-                        message:
-                            "The Parent Institution's Membership " +
-                            "Plan is disabled."
-                    });
-
-                    frm.set_value(
-                        "parent_institution",
-                        ""
-                    );
-
-                    return;
-                }
-
-
-                if (!plan.is_institutional) {
-
-                    frappe.msgprint({
-                        title: __("Error"),
-                        indicator: "red",
-                        message:
-                            "The Parent Institution does not have " +
-                            "an institutional Membership Plan."
-                    });
-
-                    frm.set_value(
-                        "parent_institution",
-                        ""
-                    );
-
-                    return;
-                }
-
-
-                const max_limit =
-                    cint(plan.allowed_nominees || 0);
-
-
-                // ---------------------------------------------------
-                // Count existing active nominees
-                // ---------------------------------------------------
-
-                frappe.db.get_list(
-                    "Club Member",
-                    {
-                        filters: {
-                            parent_institution:
-                                frm.doc.parent_institution,
-
-                            status: ["!=", "Inactive"]
-                        },
-
-                        fields: ["name"],
-
-                        limit: 1000
-                    }
-                ).then(active_nominees => {
-
-                    const active_count =
-                        active_nominees.length;
-
-
-                    if (active_count >= max_limit) {
-
-                        frappe.msgprint({
-                            title: __("Limit Reached"),
-                            indicator: "red",
-                            message:
-                                `This institution has reached its ` +
-                                `limit of <b>${max_limit} ` +
-                                `active nominees</b>.`
-                        });
-
-                        frm.set_value(
-                            "parent_institution",
-                            ""
-                        );
-
-                        frm.set_value(
-                            "membership_plan",
-                            ""
-                        );
-
-                        frm.set_value(
-                            "naming_series",
-                            ""
-                        );
-
-                        return;
-                    }
-
-
-                    // ------------------------------------------------
-                    // Nominee naming series
-                    // ------------------------------------------------
-
-                    frm.set_value(
-                        "naming_series",
-                        frm.doc.parent_institution + "-#"
-                    );
-                });
-            });
-        });
-    },
-
-
-    // ---------------------------------------------------------------
-    // MEMBERSHIP PLAN
-    // ---------------------------------------------------------------
-
-    membership_plan: function(frm) {
-
-        if (
-            !frm.is_new() ||
-            !frm.doc.membership_plan
-        ) {
-            return;
-        }
-
-
-        frappe.db.get_value(
-            "Club Membership Plan",
-            frm.doc.membership_plan,
-            [
-                "enabled",
-                "customer_group",
-                "membership_item",
-                "validity_in_years",
-                "is_institutional",
-                "allowed_nominees",
-                "membership_rate"
-            ]
-        ).then(r => {
-
-            const plan = r.message;
-
-            if (!plan) {
-                return;
-            }
-
-
-            // -------------------------------------------------------
-            // Basic validation
-            // -------------------------------------------------------
-
-            if (!plan.enabled) {
-
-                frappe.msgprint({
-                    title: __("Invalid Membership Plan"),
-                    indicator: "red",
-                    message:
-                        "The selected Membership Plan is disabled."
-                });
-
-                frm.set_value(
-                    "membership_plan",
-                    ""
-                );
-
-                return;
-            }
-
-
-            if (
-                plan.customer_group !==
-                frm.doc.customer_group
-            ) {
-
-                frappe.msgprint({
-                    title: __("Invalid Membership Plan"),
-                    indicator: "red",
-                    message:
-                        `The selected Membership Plan belongs to ` +
-                        `<b>${plan.customer_group}</b>.`
-                });
-
-                frm.set_value(
-                    "membership_plan",
-                    ""
-                );
-
-                return;
-            }
-
-
-            if (!plan.membership_item) {
-
-                frappe.msgprint({
-                    title: __("Invalid Membership Plan"),
-                    indicator: "red",
-                    message:
-                        "The selected Membership Plan does not " +
-                        "have a Membership Item."
-                });
-
-                frm.set_value(
-                    "membership_plan",
-                    ""
-                );
-
-                return;
-            }
-
-
-            // -------------------------------------------------------
-            // Institutional flag
-            //
-            // Keep this as a property of the MEMBER based on the
-            // Customer Group. The Plan's is_institutional is used
-            // for validation.
-            // -------------------------------------------------------
-
-            frm.set_value(
-                "is_institution",
-                frm.doc.customer_group ===
-                "Institutional Member" ? 1 : 0
-            );
-
-
-            // -------------------------------------------------------
-            // Membership validity
-            // -------------------------------------------------------
-
-            const years =
-                cint(plan.validity_in_years || 0);
-
-
-            // Lifetime membership
-            if (years === 0) {
-
-                frm.set_value(
-                    "membership_expiry_date",
-                    ""
-                );
-
-                frm.set_df_property(
-                    "membership_expiry_date",
-                    "hidden",
-                    1
-                );
-
-                frm.set_df_property(
-                    "membership_expiry_date",
-                    "reqd",
-                    0
-                );
-
-            } else {
-
-                let start_date =
-                    frm.doc.membership_start_date ||
-                    frappe.datetime.get_today();
-
-                let expiry_date =
-                    frappe.datetime.add_days(
-                        frappe.datetime.add_months(
-                            start_date,
-                            years * 12
-                        ),
-                        -1
-                    );
-
-                frm.set_value(
-                    "membership_expiry_date",
-                    expiry_date
-                );
-
-                if (!frm.doc.membership_start_date) {
-
-                    frm.set_value(
-                        "membership_start_date",
-                        start_date
-                    );
-
-                    frm.set_value(
-                        "original_join_date",
-                        start_date
-                    );
-                }
-
-                frm.set_df_property(
-                    "membership_expiry_date",
-                    "hidden",
-                    0
-                );
-
-                frm.set_df_property(
-                    "membership_expiry_date",
-                    "reqd",
-                    1
-                );
-            }
-        });
-    },
-
-
-    // ---------------------------------------------------------------
-    // MEMBERSHIP START DATE
-    // ---------------------------------------------------------------
-
-    membership_start_date: function(frm) {
-
-        if (
-            !frm.is_new() ||
-            frm.doc.customer_group ===
-                "Institutional Nominee"
-        ) {
-            return;
-        }
-
-        if (frm.doc.membership_start_date) {
-
-            frm.set_value(
-                "original_join_date",
-                frm.doc.membership_start_date
-            );
-        }
-
-        if (frm.doc.membership_plan) {
-
-            frm.trigger(
-                "membership_plan"
-            );
-        }
-    },
-
-
-    // ---------------------------------------------------------------
-    // REFRESH
-    // ---------------------------------------------------------------
-
     refresh: function(frm) {
-
+        
         // -----------------------------------------------------------
-        // Lock Member Name after creation
+        // 1. Fetch and Display Subscription Badge & Management Actions
         // -----------------------------------------------------------
-
         if (!frm.is_new()) {
-
-            frm.set_df_property(
-                "member_name",
-                "read_only",
-                1
-            );
+            frappe.call({
+                method: "club_erp.club_erp.doctype.club_member.club_member.get_active_subscription",
+                args: {
+                    member_id: frm.doc.name
+                },
+                callback: function(r) {
+                    
+                    let html_badge = "";
+                    
+                    if (r.message) {
+                        // Found a Live/Unpaid Subscription -> GREEN / ORANGE BADGE
+                        let sub_id = r.message.subscription_id;
+                        let plan_names = r.message.plans;
+                        let sub_status = r.message.status;
+                        
+                        let bg_color = sub_status === "Active" ? "#e8f5e9" : "#fff3e0";
+                        let border_color = sub_status === "Active" ? "#c8e6c9" : "#ffe0b2";
+                        let text_color = sub_status === "Active" ? "#2e7d32" : "#e65100";
+                        
+                        html_badge = `
+                            <div style="padding: 10px 15px; margin-bottom: 15px; background-color: ${bg_color}; color: ${text_color}; border-radius: 6px; border: 1px solid ${border_color}; display: flex; align-items: center; justify-content: space-between;">
+                                <div>
+                                    <span style="font-size: 12px; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px;">Subscription Status: ${sub_status}</span><br>
+                                    <span style="font-size: 15px; font-weight: 500;">${plan_names}</span>
+                                </div>
+                                <a href="/app/subscription/${sub_id}" class="btn btn-xs btn-default" style="background-color: white; border-color: ${border_color}; color: ${text_color}; font-weight: bold; text-decoration: none;">
+                                    View Record
+                                </a>
+                            </div>
+                        `;
+                    } else {
+                        // No Live Subscription Found -> GRAY BADGE WITH MANAGEMENT BUTTON
+                        html_badge = `
+                            <div style="padding: 10px 15px; margin-bottom: 15px; background-color: #f5f5f5; color: #616161; border-radius: 6px; border: 1px solid #e0e0e0; display: flex; align-items: center; justify-content: space-between;">
+                                <div>
+                                    <span style="font-size: 12px; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px;">Subscription Status</span><br>
+                                    <span style="font-size: 15px; font-weight: 500;">No Active Subscription Linked</span>
+                                </div>
+                                <button id="reactivate_sub_btn" class="btn btn-xs btn-primary" style="font-weight: bold;">
+                                    + Manage / Activate Subscription
+                                </button>
+                            </div>
+                        `;
+                    }
+                    
+                    // Unhide the HTML field and inject the content
+                    frm.set_df_property("active_subscription_display", "hidden", 0);
+                    frm.get_field("active_subscription_display").$wrapper.html(html_badge);
+                    
+                    // Bind click event to check for inactive/historical subscriptions
+                    frm.get_field("active_subscription_display").$wrapper.find("#reactivate_sub_btn").on("click", function() {
+                        frappe.call({
+                            method: "club_erp.club_erp.doctype.club_member.club_member.get_inactive_subscriptions",
+                            args: { party_name: frm.doc.name },
+                            callback: function(res) {
+                                let inactive_subs = res.message || [];
+                                
+                                // Format options to display the readable plan name first
+                                let options = inactive_subs.map(s => `${s.plans} (${s.status} - Started: ${s.start_date}) [${s.name}]`);
+                                
+                                // Always append the choice to create a brand new subscription
+                                options.push("+ Create New Subscription");
+                                
+                                let d = new frappe.ui.Dialog({
+                                    title: __("Manage Subscriptions"),
+                                    fields: [
+                                        {
+                                            label: __("Select Existing Subscription or Create New"),
+                                            fieldname: "sub_name",
+                                            fieldtype: "Select",
+                                            options: options,
+                                            reqd: 1
+                                        }
+                                    ],
+                                    primary_action_label: __("Proceed"),
+                                    primary_action(values) {
+                                        d.hide();
+                                        
+                                        // If the clerk chose to create a new one, redirect them
+                                        if (values.sub_name === "+ Create New Subscription") {
+                                            window.location.href = `/app/subscription/new?party_type=Customer&party=${frm.doc.name}`;
+                                            return;
+                                        }
+                                        
+                                        // Otherwise, extract the subscription ID and activate it
+                                        let match = values.sub_name.match(/\[(.*?)\]/);
+                                        let selected_id = match ? match[1] : null;
+                                        
+                                        if (!selected_id) {
+                                            frappe.msgprint(__("Could not determine the selected subscription ID."));
+                                            return;
+                                        }
+                                        
+                                        frappe.call({
+                                            method: "club_erp.club_erp.doctype.club_member.club_member.activate_existing_subscription",
+                                            args: { subscription_name: selected_id },
+                                            callback: function() {
+                                                frappe.show_alert({message: __("Subscription activated successfully!"), indicator: "green"});
+                                                frm.reload();
+                                            }
+                                        });
+                                    }
+                                });
+                                d.show();
+                            }
+                        });
+                    });
+                }
+            });
         }
 
+        // -----------------------------------------------------------
+        // 2. Lock Member Name after creation
+        // -----------------------------------------------------------
+        if (!frm.is_new()) {
+            frm.set_df_property("member_name", "read_only", 1);
+        }
 
         // -----------------------------------------------------------
-        // Retire Nominee button
+        // 3. Retire Nominee button
         // -----------------------------------------------------------
+        if (frm.doc.customer_group === "Institutional Nominee" && frm.doc.status === "Active" && !frm.is_new()) {
+            frm.add_custom_button(__("Retire Nominee"), function() {
+                frappe.confirm(
+                    "Retire this nominee? This sets the status to Inactive and frees the institutional quota slot.",
+                    function() {
+                        frm.set_value("status", "Inactive");
+                        frm.save().then(() => {
+                            frappe.msgprint({ title: __("Success"), indicator: "green", message: "Nominee Retired!" });
+                        });
+                    }
+                );
+            }).addClass("btn-danger");
+        }
+    },
 
-        if (
-            frm.doc.customer_group ===
-                "Institutional Nominee" &&
-            frm.doc.status === "Active" &&
-            !frm.is_new()
-        ) {
-
-            frm.add_custom_button(
-                __("Retire Nominee"),
-                function() {
-
-                    frappe.confirm(
-                        "Retire this nominee? This sets the " +
-                        "status to Inactive and frees the " +
-                        "institutional quota slot.",
-
-                        function() {
-
-                            frm.set_value(
-                                "status",
-                                "Inactive"
-                            );
-
-                            frm.save().then(() => {
-
-                                frappe.msgprint({
-                                    title: __("Success"),
-                                    indicator: "green",
-                                    message:
-                                        "Nominee Retired!"
-                                });
-                            });
-                        }
-                    );
+    // ---------------------------------------------------------------
+    // 4. Status Dropdown UI Validation Safeguard
+    // ---------------------------------------------------------------
+    status: function(frm) {
+        if (frm.doc.status === "Active" && !frm.is_new()) {
+            frappe.call({
+                method: "club_erp.club_erp.doctype.club_member.club_member.get_active_subscription",
+                args: {
+                    member_id: frm.doc.name
+                },
+                callback: function(r) {
+                    if (!r.message) {
+                        frappe.msgprint({
+                            title: __("Activation Blocked"),
+                            indicator: "red",
+                            message: "You must create and submit a Subscription for this member before setting their status to Active."
+                        });
+                        frm.set_value("status", "Inactive");
+                    }
                 }
-            ).addClass("btn-danger");
+            });
         }
     }
 });

@@ -16,6 +16,8 @@
   "is_institution",
   "parent_institution",
   "membership_plan",
+  "active_subscription_display",
+  "current_subscription",
   "membership_start_date",
   "membership_expiry_date",
   "family_members",
@@ -72,14 +74,13 @@
    "fieldname": "status",
    "fieldtype": "Select",
    "label": "Status",
-   "options": "Active\nInactive\nSuspended\nFrozen",
+   "options": "Active\nInactive\nFrozen",
    "reqd": 1
   },
   {
    "fieldname": "membership_expiry_date",
    "fieldtype": "Date",
-   "label": "Membership Expiry Date",
-   "mandatory_depends_on": "eval:!doc.parent_institution"
+   "label": "Membership Expiry Date"
   },
   {
    "fieldname": "customer_group",
@@ -105,12 +106,26 @@
    "fieldtype": "Select",
    "hidden": 1,
    "label": "Naming Series"
+  },
+  {
+   "fieldname": "active_subscription_display",
+   "fieldtype": "HTML",
+   "label": "Active Subscription Display"
+  },
+  {
+   "fieldname": "current_subscription",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "in_list_view": 1,
+   "label": "Current Subscription",
+   "options": "Subscription",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-09-14 13:35:00.456534",
+ "modified": "2026-09-16 12:20:35.347909",
  "modified_by": "Administrator",
  "module": "Club Erp",
  "name": "Club Member",

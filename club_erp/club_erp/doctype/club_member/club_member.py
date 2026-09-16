@@ -5,7 +5,35 @@ from frappe.model.naming import make_autoname
 
 
 class ClubMember(Document):
+    
+    def validate(self):
+        # Trigger the validation check before any save happens
+        self.validate_active_subscription()
+        
+    def before_save(self):
+        self.sync_subscription_status()
+        
+    def validate_active_subscription(self):
+        """
+        Blocks manual activation if the member does not have a live subscription.
+        """
+        if self.status == "Active":
+            # Check if there is at least one live subscription
+            has_subscription = frappe.db.exists(
+                "Subscription",
+                {
+                    "party_type": "Customer",
+                    "party": self.name,
+                    "status": ["in", ["Active", "Unpaid", "Past Due Date"]]
+                }
+            )
+            
+            if not has_subscription:
+                frappe.throw(
+                    "<b>Activation Blocked:</b> You must create and submit a Subscription for this member before setting their status to Active."
+                )
 
+            
     def autoname(self):
         """
         Generate the Club Member ID using the naming series configured
@@ -23,8 +51,38 @@ class ClubMember(Document):
                 self.naming_series = series
 
         if self.naming_series:
-            self.name = make_autoname(self.naming_series)
+            self.name = make_autoname(self.naming_series)    
+    def sync_subscription_status(self):
+        """
+        Silently updates the Data field with readable Plan Names for the List View
+        """
+        # --- THE FIX: Instantly clear the field if the member is being deactivated ---
+        if self.status in ["Inactive", "Suspended"]:
+            self.current_subscription = "No Active Plan"
+            return
+        # -----------------------------------------------------------------------------
 
+        active_sub = frappe.get_all(
+            "Subscription",
+            filters={
+                "party_type": "Customer",
+                "party": self.name,
+                "status": ["in", ["Active", "Unpaid", "Past Due Date"]]
+            },
+            fields=["name"],
+            limit=1
+        )
+        
+        if not active_sub:
+            self.current_subscription = "No Active Plan"
+            return
+            
+        try:
+            sub_doc = frappe.get_doc("Subscription", active_sub[0].name)
+            plans = [p.plan for p in sub_doc.plans]
+            self.current_subscription = ", ".join(plans)
+        except Exception:
+            self.current_subscription = "Error Loading Plan"
     # ------------------------------------------------------------------
     # VALIDATION
     # ------------------------------------------------------------------
@@ -536,7 +594,62 @@ class ClubMember(Document):
 # ----------------------------------------------------------------------
 # MEMBERSHIP NUMBER PREVIEW
 # ----------------------------------------------------------------------
+from frappe.utils import getdate, nowdate
 
+@frappe.whitelist()
+def get_inactive_subscriptions(party_name):
+    """
+    Fetches a list of paused, unpaid, past due, or cancelled subscriptions 
+    belonging to the customer along with their readable plan names.
+    """
+    subs = frappe.get_all(
+        "Subscription",
+        filters={
+            "party_type": "Customer",
+            "party": party_name,
+            "status": ["in", ["Paused", "Unpaid", "Past Due Date", "Cancelled"]]
+        },
+        fields=["name", "status", "start_date", "end_date"]
+    )
+    
+    result = []
+    for s in subs:
+        try:
+            sub_doc = frappe.get_doc("Subscription", s.name)
+            plans = [p.plan for p in sub_doc.plans]
+            plan_names = ", ".join(plans) if plans else "No Plan"
+        except Exception:
+            plan_names = "Error Loading Plan"
+            
+        result.append({
+            "name": s.name,
+            "status": s.status,
+            "start_date": s.start_date,
+            "plans": plan_names
+        })
+        
+    return result
+@frappe.whitelist()
+def activate_existing_subscription(subscription_name):
+    """
+    Reactivates a selected existing subscription and forces its 
+    start date to the 1st of the current month.
+    """
+    sub_doc = frappe.get_doc("Subscription", subscription_name)
+    
+    # Force start date and billing cycle start to the 1st of the current month
+    today = getdate(nowdate())
+    first_of_month = today.replace(day=1).strftime("%Y-%m-%d")
+    
+    sub_doc.status = "Active"
+    sub_doc.start_date = first_of_month
+    sub_doc.current_invoice_start = first_of_month
+    
+    sub_doc.save(ignore_permissions=True)
+    frappe.db.commit()
+    
+    return sub_doc.name
+    
 @frappe.whitelist()
 def peek_next_id(customer_group):
 
@@ -566,3 +679,93 @@ def peek_next_id(customer_group):
     next_num = int(current) + 1
 
     return f"{prefix}{str(next_num).zfill(hash_count)}"
+
+
+@frappe.whitelist()
+def get_active_subscription(member_id):
+    """
+    Fetches the live subscription (Active, Unpaid, or Past Due Date) 
+    and its linked plans for display on the Club Member form.
+    """
+    active_sub = frappe.get_all(
+        "Subscription",
+        filters={
+            "party_type": "Customer",
+            "party": member_id,
+            # Broaden the filter to catch live but unpaid subscriptions
+            "status": ["in", ["Active", "Unpaid", "Past Due Date"]] 
+        },
+        fields=["name", "status"],
+        limit=1
+    )
+
+    if not active_sub:
+        return None
+
+    # Fetch the specific plans attached to this subscription
+    sub_doc = frappe.get_doc("Subscription", active_sub[0].name)
+    plans = [p.plan for p in sub_doc.plans]
+
+    return {
+        "subscription_id": sub_doc.name,
+        "status": active_sub[0].status, # Pass the status to the frontend
+        "plans": ", ".join(plans)
+    }
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def filter_active_customers(doctype, txt, searchfield, start, page_len, filters):
+    """
+    Custom query for the Customer Select box. Hides any customer 
+    whose linked Club Member profile is marked as 'Inactive'.
+    """
+    return frappe.db.sql("""
+        SELECT name, customer_name
+        FROM `tabCustomer`
+        WHERE disabled = 0
+        AND name NOT IN (
+            SELECT customer FROM `tabClub Member` 
+            WHERE status = 'Inactive' AND customer IS NOT NULL
+        )
+        AND (name LIKE %(txt)s OR customer_name LIKE %(txt)s)
+        ORDER BY name
+        LIMIT %(start)s, %(page_len)s
+    """, {
+        'txt': '%' + txt + '%',
+        'start': start,
+        'page_len': page_len
+    })
+    
+def update_member_on_subscription_save(doc, method):
+    """
+    Master controller hook: Listens exclusively to the Subscription module.
+    When a subscription is created or updated, it pushes the status 
+    and plan text down to the linked Club Member profile.
+    """
+    if doc.party_type != "Customer":
+        return
+        
+    # Find the linked Club Member record using the Customer ID
+    member_name = frappe.db.get_value("Club Member", {"customer": doc.party}, "name")
+    if not member_name:
+        # Fallback: check if the customer name/id matches the Club Member primary key directly
+        if frappe.db.exists("Club Member", doc.party):
+            member_name = doc.party
+        else:
+            return
+            
+    # 1. Compile readable plan text
+    try:
+        plans = [p.plan for p in doc.plans]
+        display_text = ", ".join(plans) if plans else "No Active Plan"
+    except Exception:
+        display_text = "Error Loading Plan"
+        
+    # 2. Determine if the subscription is in a live state
+    is_live = doc.status in ["Active", "Unpaid", "Past Due Date"]
+    new_status = "Active" if is_live else "Inactive"
+    
+    # 3. Push updates directly to the Club Member profile
+    frappe.db.set_value("Club Member", member_name, {
+        "status": new_status,
+        "current_subscription": display_text
+    }, update_modified=False)
