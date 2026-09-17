@@ -33,6 +33,26 @@
    "unique": 1
   },
   {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Naming Series"
+  },
+  {
+   "fieldname": "member_name",
+   "fieldtype": "Data",
+   "label": "Member Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "customer_group",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Member Group",
+   "options": "Customer Group",
+   "reqd": 1
+  },
+  {
    "fieldname": "date_of_birth",
    "fieldtype": "Date",
    "label": "Date of Birth"
@@ -43,17 +63,10 @@
    "label": "Original Join Date"
   },
   {
-   "fieldname": "membership_plan",
-   "fieldtype": "Link",
-   "label": "Membership Plan",
-   "mandatory_depends_on": "eval:!doc.parent_institution",
-   "options": "Club Membership Plan"
-  },
-  {
-   "fieldname": "membership_start_date",
-   "fieldtype": "Date",
-   "label": "Membership Start Date",
-   "mandatory_depends_on": "eval:!doc.parent_institution"
+   "default": "0",
+   "fieldname": "is_institution",
+   "fieldtype": "Check",
+   "label": "Is Institution?"
   },
   {
    "depends_on": "eval:!doc.is_institution",
@@ -64,48 +77,12 @@
    "options": "Club Member"
   },
   {
-   "fieldname": "family_members",
-   "fieldtype": "Table",
-   "label": "Family Members",
-   "options": "Family Member Detail"
-  },
-  {
-   "default": "Active",
-   "fieldname": "status",
-   "fieldtype": "Select",
-   "label": "Status",
-   "options": "Active\nInactive\nFrozen",
-   "reqd": 1
-  },
-  {
-   "fieldname": "membership_expiry_date",
-   "fieldtype": "Date",
-   "label": "Membership Expiry Date"
-  },
-  {
-   "fieldname": "customer_group",
+   "fieldname": "membership_plan",
    "fieldtype": "Link",
-   "label": "Member Group",
-   "options": "Customer Group",
-   "reqd": 1
-  },
-  {
-   "fieldname": "member_name",
-   "fieldtype": "Data",
-   "label": "Member Name",
-   "reqd": 1
-  },
-  {
-   "default": "0",
-   "fieldname": "is_institution",
-   "fieldtype": "Check",
-   "label": "Is Institution?"
-  },
-  {
-   "fieldname": "naming_series",
-   "fieldtype": "Select",
-   "hidden": 1,
-   "label": "Naming Series"
+   "in_standard_filter": 1,
+   "label": "Membership Plan",
+   "mandatory_depends_on": "eval:!doc.parent_institution",
+   "options": "Club Membership Plan"
   },
   {
    "fieldname": "active_subscription_display",
@@ -117,15 +94,42 @@
    "fieldtype": "Data",
    "hidden": 1,
    "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Current Subscription",
    "options": "Subscription",
    "read_only": 1
+  },
+  {
+   "fieldname": "membership_start_date",
+   "fieldtype": "Date",
+   "label": "Membership Start Date",
+   "mandatory_depends_on": "eval:!doc.parent_institution"
+  },
+  {
+   "fieldname": "membership_expiry_date",
+   "fieldtype": "Date",
+   "label": "Membership Expiry Date"
+  },
+  {
+   "fieldname": "family_members",
+   "fieldtype": "Table",
+   "label": "Family Members",
+   "options": "Family Member Detail"
+  },
+  {
+   "default": "Active",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Active\nInactive\nFrozen",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-09-16 12:20:35.347909",
+ "modified": "2026-09-17 04:06:53.853287",
  "modified_by": "Administrator",
  "module": "Club Erp",
  "name": "Club Member",

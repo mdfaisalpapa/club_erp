@@ -2,6 +2,28 @@
  {
   "docstatus": 0,
   "doctype": "Client Script",
+  "dt": "Sales Invoice",
+  "enabled": 1,
+  "modified": "2026-09-16 13:49:04.207499",
+  "module": "Club Erp",
+  "name": "Hide Inactive Members",
+  "script": "frappe.ui.form.on(\"Sales Invoice\", {\r\n    setup: function(frm) {\r\n        // Override the Customer dropdown search\r\n        frm.set_query(\"customer\", function() {\r\n            return {\r\n                query: \"club_erp.club_erp.doctype.club_member.club_member.filter_active_customers\"\r\n            };\r\n        });\r\n    }\r\n});",
+  "view": "Form"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Client Script",
+  "dt": "POS Invoice",
+  "enabled": 1,
+  "modified": "2026-09-16 13:51:01.246224",
+  "module": "Club Erp",
+  "name": "Hide Inactive Members - POS",
+  "script": "frappe.ui.form.on(\"POS Invoice\", {\r\n    setup: function(frm) {\r\n        // Override the Customer dropdown search to hide Inactive members\r\n        frm.set_query(\"customer\", function() {\r\n            return {\r\n                query: \"club_erp.club_erp.doctype.club_member.club_member.filter_active_customers\"\r\n            };\r\n        });\r\n    }\r\n});",
+  "view": "Form"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Client Script",
   "dt": "Item",
   "enabled": 1,
   "modified": "2026-08-26 05:05:00.869168",
