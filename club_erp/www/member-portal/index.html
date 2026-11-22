@@ -1,0 +1,1391 @@
+{% extends "templates/web.html" %}
+
+{% block title %}Member Services Portal &bull; Railway Officers' Club{% endblock %}
+
+{% block header %}
+<style>
+:root {
+    --roc-navy: #0d2946;
+    --roc-navy-light: #163c63;
+    --roc-gold: #c59b27;
+    --roc-gold-light: #fef9e7;
+    --roc-green: #15803d;
+    --roc-border: #e2e8f0;
+}
+
+body {
+    background-color: #f8fafc;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.portal-container {
+    max-width: 1260px;
+    margin: 0 auto;
+    padding: 20px 16px 48px;
+}
+
+/* Header Profile Banner */
+.member-hero-banner {
+    background: linear-gradient(135deg, #0d2946 0%, #1a446c 100%);
+    border-radius: 18px;
+    color: white;
+    padding: 24px 28px;
+    margin-bottom: 22px;
+    box-shadow: 0 8px 24px rgba(13, 41, 70, 0.15);
+    position: relative;
+    overflow: hidden;
+}
+
+.member-hero-banner::after {
+    content: "";
+    position: absolute;
+    right: -40px;
+    top: -40px;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: rgba(197, 155, 39, 0.1);
+    pointer-events: none;
+}
+
+/* Digital ID Card (Passbook style) */
+.digital-id-card {
+    background: linear-gradient(145deg, #0a1f35 0%, #133355 50%, #0d243d 100%);
+    border-radius: 18px;
+    color: #ffffff;
+    padding: 22px;
+    border: 1px solid rgba(197, 155, 39, 0.45);
+    box-shadow: 0 10px 28px rgba(10, 31, 53, 0.25);
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 22px;
+}
+
+.id-card-top-rail {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+}
+
+.id-badge-active {
+    background: #22c55e;
+    color: #064e3b;
+    font-size: 0.74rem;
+    font-weight: 800;
+    padding: 3px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.id-qr-box {
+    background: #ffffff;
+    padding: 8px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    display: inline-block;
+}
+
+/* Nav Tabs */
+.portal-tabs .nav-link {
+    font-weight: 700;
+    color: #475569;
+    border-radius: 10px;
+    padding: 9px 16px;
+    margin-right: 6px;
+    margin-bottom: 6px;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+    font-size: 0.92rem;
+}
+
+.portal-tabs .nav-link:hover {
+    color: var(--roc-navy);
+    background: #f1f5f9;
+}
+
+.portal-tabs .nav-link.active {
+    background: #0d2946 !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(13, 41, 70, 0.2);
+}
+
+/* Standard Section Cards */
+.portal-card {
+    background: #ffffff;
+    border: 1px solid var(--roc-border);
+    border-radius: 14px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    overflow: hidden;
+    margin-bottom: 22px;
+}
+
+.portal-card-header {
+    background: #ffffff;
+    border-bottom: 1px solid #f1f5f9;
+    padding: 16px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Responsive Invoice Cards */
+.invoice-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin-bottom: 14px;
+    cursor: pointer;
+    transition: all 0.18s ease-in-out;
+    position: relative;
+}
+
+.invoice-card:hover {
+    border-color: #cbd5e1;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.06);
+}
+
+.badge-paid { background: #dcfce7; color: #15803d; font-weight: 700; padding: 4px 9px; border-radius: 6px; font-size: 0.78rem; }
+.badge-overdue { background: #fee2e2; color: #b91c1c; font-weight: 700; padding: 4px 9px; border-radius: 6px; font-size: 0.78rem; }
+.badge-unpaid { background: #fef3c7; color: #b45309; font-weight: 700; padding: 4px 9px; border-radius: 6px; font-size: 0.78rem; }
+
+/* Family Member Chip */
+.family-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px;
+    background: #ffffff;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.family-card:hover {
+    box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+    transform: translateY(-2px);
+}
+
+/* App Navigation Tiles */
+.portal-tiles-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+}
+@media (min-width: 992px) {
+    .portal-tiles-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+.portal-tile-btn {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 14px 16px;
+    background: #ffffff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 14px;
+    text-decoration: none !important;
+    color: #1e293b !important;
+    transition: all 0.2s ease-in-out;
+    cursor: pointer;
+    position: relative;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+.portal-tile-btn:hover {
+    border-color: #cbd5e1;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 14px rgba(0,0,0,0.08);
+}
+.portal-tile-btn.active {
+    background: linear-gradient(135deg, #0d2946 0%, #173f67 100%);
+    border-color: #0d2946;
+    color: #ffffff !important;
+    box-shadow: 0 6px 16px rgba(13, 41, 70, 0.22);
+}
+.portal-tile-btn .tile-icon {
+    font-size: 1.5rem;
+    margin-bottom: 8px;
+    display: block;
+}
+.portal-tile-btn .tile-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.25;
+    margin-bottom: 3px;
+}
+.portal-tile-btn .tile-sub {
+    font-size: 0.75rem;
+    color: #64748b;
+    font-weight: 500;
+}
+.portal-tile-btn.active .tile-sub {
+    color: #cbd5e1;
+}
+.portal-tile-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 2px 7px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    border-radius: 20px;
+}
+
+/* Family Member Pass Styling */
+.family-pass-card {
+    background: #ffffff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 16px;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+.family-pass-card:hover {
+    border-color: #c59b27;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+}
+.family-photo-thumb {
+    width: 64px;
+    height: 64px;
+    border-radius: 12px;
+    object-fit: cover;
+    background: #f1f5f9;
+    border: 2px solid #e2e8f0;
+}
+.family-photo-placeholder {
+    width: 64px;
+    height: 64px;
+    border-radius: 12px;
+    background: #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    color: #94a3b8;
+}
+
+</style>
+{% endblock %}
+
+{% block page_content %}
+<div class="portal-container">
+    {% set d = portal_data %}
+    
+    {% if not d.is_member %}
+    <div class="alert alert-warning border-0 p-4 text-center shadow-sm" style="border-radius: 14px; background: #fffbeb; color: #92400e;">
+        <h4 class="font-weight-bold mb-2">Member Account Not Linked</h4>
+        <p class="mb-3">{{ d.message }}</p>
+        <a href="/home" class="btn btn-outline-primary px-4 font-weight-bold">&larr; Return to Home Page</a>
+    </div>
+    {% else %}
+
+    <!-- Top Member Hero Banner -->
+    <div class="member-hero-banner d-flex justify-content-between align-items-center flex-wrap">
+        <div class="d-flex align-items-center gap-3">
+            <div style="width: 58px; height: 58px; border-radius: 50%; background: #ffffff; padding: 3px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                <img src="/files/1000333700.png" alt="ROC Logo" style="width: 100%; height: 100%; border-radius: 50%; object-fit: contain;">
+            </div>
+            <div>
+                <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                    <h3 class="mb-0 font-weight-bold text-white">{{ d.member_name }}</h3>
+                    <span class="badge badge-light px-2 py-1 text-dark" style="font-size: 0.82rem; font-weight: 700;">Member ID: {{ d.member_id }}</span>
+                </div>
+                <div class="small text-white-50">
+                    🏛️ {{ d.membership_plan }} &bull; Category: {{ d.customer_group }}
+                </div>
+            </div>
+        </div>
+        <div class="mt-3 mt-md-0 d-flex gap-2">
+            <a href="/venue-availability" class="btn btn-warning btn-sm font-weight-bold px-3 text-dark shadow-sm">
+                🏛️ Reserve Venue Slot
+            </a>
+            <a href="/home" class="btn btn-outline-light btn-sm font-weight-bold px-3">
+                &larr; Home
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Grid: Sidebar (Desktop only) + Main Tabs Hub -->
+    <div class="row">
+        <!-- Desktop Sidebar: Passbook Digital ID Card & Quick Dues Card (Hidden on Mobile) -->
+        <div class="col-lg-4 mb-4 d-none d-lg-block">
+            <!-- Digital ID Card for Gate Flashing (Desktop) -->
+            <div class="digital-id-card">
+                <div class="id-card-top-rail">
+                    <div class="d-flex align-items-center gap-2">
+                        <img src="/files/1000333700.png" alt="ROC" style="width: 28px; height: 28px; border-radius: 50%; background: #fff; padding: 1px;">
+                        <span style="font-size: 0.82rem; font-weight: 800; letter-spacing: 0.6px; color: #dfb235;">RAILWAY OFFICERS' CLUB</span>
+                    </div>
+                    <span class="id-badge-active">{{ d.status }}</span>
+                </div>
+
+                <div class="text-center my-3">
+                    {% if d.qr_code %}
+                    <div class="id-qr-box">
+                        <img src="{{ d.qr_code }}" alt="Member Gate QR" style="width: 140px; height: 140px; display: block;">
+                    </div>
+                    {% endif %}
+                    <div class="small text-white-50 mt-2 font-weight-bold" style="font-size: 0.72rem; letter-spacing: 0.5px;">
+                        ⚡ SCAN AT CLUB SECURITY GATE
+                    </div>
+                </div>
+
+                <div class="pt-2 border-top border-secondary">
+                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.82rem;">
+                        <span class="text-white-50">Member Name:</span>
+                        <strong class="text-white">{{ d.member_name }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.82rem;">
+                        <span class="text-white-50">Member ID:</span>
+                        <strong class="text-warning">{{ d.member_id }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.82rem;">
+                        <span class="text-white-50">Plan:</span>
+                        <span class="text-white small">{{ d.membership_plan }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between" style="font-size: 0.82rem;">
+                        <span class="text-white-50">Gate Pass:</span>
+                        <span class="text-success font-weight-bold">Active & Verified</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dues Advisory Card (Desktop) -->
+            <div class="portal-card">
+                <div class="portal-card-header">
+                    <h6 class="mb-0 font-weight-bold text-dark">💳 Account Dues Status</h6>
+                    {% if d.has_overdue_30_days %}
+                        <span class="badge badge-danger px-2 py-1">⚠️ Dues > 30 Days</span>
+                    {% elif d.total_outstanding > 0 %}
+                        <span class="badge badge-warning px-2 py-1 text-dark">Payment Due</span>
+                    {% else %}
+                        <span class="badge badge-success px-2 py-1">✓ Good Standing</span>
+                    {% endif %}
+                </div>
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="small text-muted">Total Outstanding Dues:</span>
+                        <h4 class="mb-0 font-weight-bold {% if d.total_outstanding > 0 %}text-danger{% else %}text-success{% endif %}">
+                            ₹{{ "{:,.2f}".format(d.total_outstanding) }}
+                        </h4>
+                    </div>
+                    {% if d.has_overdue_30_days %}
+                    <p class="small text-danger mb-3" style="line-height: 1.5;">
+                        Outstanding dues exceed the 30-day grace period. Settle dues to unlock venue reservations and event passes.
+                    </p>
+                    {% elif d.total_outstanding > 0 %}
+                    <p class="small text-muted mb-3" style="line-height: 1.5;">
+                        Pending subscription or facility dues. Clear the total balance using your unique Federal Bank UPI VPA.
+                    </p>
+                    {% else %}
+                    <p class="small text-muted mb-3" style="line-height: 1.5;">
+                        All dues are cleared. Your club account is in verified good standing with active privileges.
+                    </p>
+                    {% endif %}
+                    
+                    {% if d.total_outstanding > 0 %}
+                    <button type="button" class="btn btn-success btn-block w-100 font-weight-bold py-2 mb-2 shadow-sm" style="border-radius: 8px;" onclick="openTotalOutstandingModal()">
+                        ⚡ Pay Total Dues: ₹{{ "{:,.2f}".format(d.total_outstanding) }} &rarr;
+                    </button>
+                    {% endif %}
+                    <button type="button" class="btn btn-outline-secondary btn-sm btn-block w-100 font-weight-bold py-2" onclick="switchTab('invoices-tab')">
+                        View Invoices Ledger &rarr;
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Column: Interactive Portal Hub Tabs (Full width on Mobile) -->
+        <div class="col-lg-8">
+            <!-- Mobile Quick Banner for Total Dues (Only on mobile) -->
+            {% if d.total_outstanding > 0 %}
+            <div class="d-lg-none alert alert-warning border-0 p-3 mb-3 d-flex justify-content-between align-items-center shadow-sm" style="border-radius: 12px; background: #fffbeb;">
+                <div>
+                    <span class="small text-muted d-block">Total Outstanding:</span>
+                    <strong class="text-danger" style="font-size: 1.15rem;">₹{{ "{:,.2f}".format(d.total_outstanding) }}</strong>
+                </div>
+                <button type="button" class="btn btn-success btn-sm font-weight-bold px-3 py-2" onclick="openTotalOutstandingModal()">
+                    ⚡ Pay Total Dues
+                </button>
+            </div>
+            {% endif %}
+
+            <!-- Portal Hub Tiles Navigation -->
+            <div class="portal-tiles-grid" id="memberPortalTiles">
+                <!-- Tile 1: Gate ID Card (On Mobile: Opens ID tab; On Desktop: Highlights sidebar pass) -->
+                <div class="portal-tile-btn d-lg-none" id="tile-idcard" onclick="selectTileTab('tab-idcard', 'tile-idcard')">
+                    <span class="tile-icon">🪪</span>
+                    <div>
+                        <div class="tile-title">Gate ID Card</div>
+                        <div class="tile-sub">Security Pass &bull; QR</div>
+                    </div>
+                </div>
+
+                <!-- Tile 2: Invoices & Payments -->
+                <div class="portal-tile-btn active" id="tile-invoices" onclick="selectTileTab('tab-invoices', 'tile-invoices')">
+                    {% if d.total_outstanding > 0 %}
+                    <span class="portal-tile-badge badge-danger">Due</span>
+                    {% else %}
+                    <span class="portal-tile-badge badge-success">Paid</span>
+                    {% endif %}
+                    <span class="tile-icon">💳</span>
+                    <div>
+                        <div class="tile-title">Invoices & Dues</div>
+                        <div class="tile-sub">{{ d.invoices | length }} Invoices &bull; UPI</div>
+                    </div>
+                </div>
+
+                <!-- Tile 3: Family Dependents -->
+                <div class="portal-tile-btn" id="tile-family" onclick="selectTileTab('tab-family', 'tile-family')">
+                    <span class="portal-tile-badge badge-info">{{ d.family_members | length }}</span>
+                    <span class="tile-icon">👨‍👩‍👧</span>
+                    <div>
+                        <div class="tile-title">Family Passes</div>
+                        <div class="tile-sub">Dependent IDs & Photos</div>
+                    </div>
+                </div>
+
+                <!-- Tile 4: Profile & Contact -->
+                <div class="portal-tile-btn" id="tile-profile" onclick="selectTileTab('tab-profile', 'tile-profile')">
+                    <span class="tile-icon">👤</span>
+                    <div>
+                        <div class="tile-title">Profile & Details</div>
+                        <div class="tile-sub">Email &bull; Mobile &bull; OTP</div>
+                    </div>
+                </div>
+
+                <!-- Tile 5: Bookings & Events -->
+                <div class="portal-tile-btn" id="tile-activity" onclick="selectTileTab('tab-activity', 'tile-activity')">
+                    <span class="tile-icon">📅</span>
+                    <div>
+                        <div class="tile-title">Venues & Events</div>
+                        <div class="tile-sub">Reservations & Passes</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="memberPortalTabContent">
+                <!-- MOBILE ONLY TAB: Digital ID Card -->
+                <div class="tab-pane fade d-lg-none" id="tab-idcard" role="tabpanel">
+                    <div class="digital-id-card mx-auto" style="max-width: 360px;">
+                        <div class="id-card-top-rail">
+                            <div class="d-flex align-items-center gap-2">
+                                <img src="/files/1000333700.png" alt="ROC" style="width: 28px; height: 28px; border-radius: 50%; background: #fff; padding: 1px;">
+                                <span style="font-size: 0.82rem; font-weight: 800; letter-spacing: 0.6px; color: #dfb235;">RAILWAY OFFICERS' CLUB</span>
+                            </div>
+                            <span class="id-badge-active">{{ d.status }}</span>
+                        </div>
+
+                        <div class="text-center my-3">
+                            {% if d.qr_code %}
+                            <div class="id-qr-box">
+                                <img src="{{ d.qr_code }}" alt="Member Gate QR" style="width: 170px; height: 170px; display: block;">
+                            </div>
+                            {% endif %}
+                            <div class="small text-white-50 mt-2 font-weight-bold" style="font-size: 0.76rem; letter-spacing: 0.5px;">
+                                ⚡ FLASH AT CLUB SECURITY GATE
+                            </div>
+                        </div>
+
+                        <div class="pt-2 border-top border-secondary">
+                            <div class="d-flex justify-content-between mb-1" style="font-size: 0.85rem;">
+                                <span class="text-white-50">Member Name:</span>
+                                <strong class="text-white">{{ d.member_name }}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-1" style="font-size: 0.85rem;">
+                                <span class="text-white-50">Member ID:</span>
+                                <strong class="text-warning">{{ d.member_id }}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-1" style="font-size: 0.85rem;">
+                                <span class="text-white-50">Plan:</span>
+                                <span class="text-white small">{{ d.membership_plan }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between" style="font-size: 0.85rem;">
+                                <span class="text-white-50">Validity:</span>
+                                <span class="text-success font-weight-bold">Active & Verified</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 1: Invoices in Card Layout -->
+                <div class="tab-pane fade show active" id="tab-invoices" role="tabpanel">
+                    <div class="portal-card">
+                        <div class="portal-card-header flex-wrap gap-2">
+                            <div>
+                                <h6 class="mb-0 font-weight-bold text-dark">📋 Member Invoices & Dues Ledger</h6>
+                                <span class="small text-muted">Tap any invoice card to view line items or download PDF</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                {% if d.total_outstanding > 0 %}
+                                <button type="button" class="btn btn-success btn-sm font-weight-bold px-3 shadow-sm" onclick="openTotalOutstandingModal()">
+                                    ⚡ Pay Total Dues: ₹{{ "{:,.2f}".format(d.total_outstanding) }}
+                                </button>
+                                {% endif %}
+                                <span class="badge badge-light border px-2 py-1 text-dark">{{ d.invoices | length }} Invoices</span>
+                            </div>
+                        </div>
+
+                        <div class="p-3">
+                            {% if d.invoices %}
+                                <div class="row">
+                                {% for inv in d.invoices %}
+                                <div class="col-md-6">
+                                    <div class="invoice-card" onclick="viewInvoiceDetails('{{ inv.name }}')">
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <div>
+                                                <strong class="text-primary" style="font-size: 1rem;">{{ inv.name }}</strong>
+                                                <div class="small text-muted mt-1">
+                                                    📅 Billed: {{ inv.posting_date }} &bull; Due: {{ inv.due_date or 'Immediate' }}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                {% if inv.custom_reconciliation_status == 'Reconciled' or inv.status == 'Paid' %}
+                                                    <span class="badge-paid">✓ Reconciled & Paid</span>
+                                                {% elif inv.custom_reconciliation_status == 'Under Reconciliation' %}
+                                                    <span class="badge" style="background: #fef3c7; color: #b45309; font-weight: 700; padding: 4px 8px; border-radius: 6px; font-size: 0.78rem;">⏳ Under Reconciliation</span>
+                                                {% elif inv.status == 'Overdue' %}
+                                                    <span class="badge-overdue">Overdue</span>
+                                                {% else %}
+                                                    <span class="badge-unpaid">Pending Payment</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+
+                                        <div class="d-flex justify-content-between align-items-center pt-2 border-top mt-2">
+                                            <div>
+                                                <span class="small text-muted">Total: </span>
+                                                <strong class="text-dark">₹{{ "{:,.2f}".format(inv.grand_total) }}</strong>
+                                            </div>
+                                            <div>
+                                                {% if inv.outstanding_amount > 0 %}
+                                                    <span class="small text-danger font-weight-bold">
+                                                        Balance Due: ₹{{ "{:,.2f}".format(inv.outstanding_amount) }}
+                                                    </span>
+                                                {% else %}
+                                                    <span class="small text-success font-weight-bold">
+                                                        ✓ Settled
+                                                    </span>
+                                                {% endif %}
+                                                <span class="ml-1 text-primary small">&rarr; Details</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="text-center py-5 text-muted">
+                                    <h5>No invoices found</h5>
+                                    <p class="small mb-0">Your account currently has no billed invoices.</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 2: Family Members (With Club Approval Workflow) -->
+                <div class="tab-pane fade" id="tab-family" role="tabpanel">
+                    <div class="portal-card">
+                        <div class="portal-card-header">
+                            <div>
+                                <h6 class="mb-0 font-weight-bold text-dark">👨‍👩‍👧 Registered Family Dependents</h6>
+                                <span class="small text-muted">Family members entitled to access club sporting & dining amenities</span>
+                            </div>
+                            <button type="button" class="btn btn-primary btn-sm font-weight-bold px-3" data-toggle="modal" data-target="#addFamilyModal" data-bs-toggle="modal" data-bs-target="#addFamilyModal">
+                                ➕ Add Family Member
+                            </button>
+                        </div>
+                        <div class="card-body p-3">
+                            <div class="alert alert-info border-0 py-2 px-3 small mb-3" style="background: #eff6ff; color: #1e40af;">
+                                ℹ️ Added family members require verification by the Club Office before club admission privileges are activated.
+                            </div>
+
+                            {% if d.family_members %}
+                            <div class="row">
+                                {% for fm in d.family_members %}
+                                <div class="col-md-6 mb-3">
+                                    <div class="family-pass-card">
+                                        <div class="d-flex gap-3 align-items-start mb-3">
+                                            <!-- Family Member Photo -->
+                                            <div>
+                                                {% if fm.photo %}
+                                                <img src="{{ fm.photo }}" alt="{{ fm.full_name }}" class="family-photo-thumb">
+                                                {% else %}
+                                                <div class="family-photo-placeholder">
+                                                    {% if fm.relationship in ['Spouse', 'Wife', 'Mother', 'Daughter'] %}👩{% elif fm.relationship in ['Son'] %}👦{% else %}👤{% endif %}
+                                                </div>
+                                                {% endif %}
+                                            </div>
+
+                                            <!-- Details -->
+                                            <div class="flex-grow-1 min-width-0">
+                                                <div class="d-flex justify-content-between align-items-start flex-wrap gap-1 mb-1">
+                                                    <h6 class="font-weight-bold text-dark mb-0 text-truncate" style="max-width: 170px;">{{ fm.full_name }}</h6>
+                                                    {% if fm.approval_status == 'Approved' %}
+                                                        <span class="badge badge-success px-2 py-1">✓ Approved</span>
+                                                    {% elif fm.approval_status == 'Rejected' %}
+                                                        <span class="badge badge-danger px-2 py-1">✕ Rejected</span>
+                                                    {% else %}
+                                                        <span class="badge badge-warning px-2 py-1 text-dark">⏳ Pending Approval</span>
+                                                    {% endif %}
+                                                </div>
+
+                                                <div class="d-flex align-items-center gap-2 mb-1">
+                                                    <span class="badge badge-light border text-muted font-weight-bold" style="font-size: 0.76rem;">ID: {{ fm.dependent_id }}</span>
+                                                    <span class="small font-weight-bold text-secondary">&bull; {{ fm.relationship }}</span>
+                                                </div>
+
+                                                {% if fm.phone_number %}
+                                                <div class="small text-muted">📞 {{ fm.phone_number }}</div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+
+                                        <!-- Card Footer: Gate Verification Pass Button -->
+                                        <div class="pt-2 border-top d-flex justify-content-between align-items-center">
+                                            <span class="small text-muted">Gate Pass Verification</span>
+                                            <button type="button" class="btn btn-outline-dark btn-sm font-weight-bold px-3" onclick="openFamilyGatePass('{{ fm.dependent_id }}', '{{ fm.full_name | replace("'", "\\'") }}', '{{ fm.relationship }}', '{{ fm.photo or "" }}', '{{ fm.qr_code or "" }}', '{{ fm.approval_status }}')">
+                                                🪪 View Gate ID
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <div class="text-center py-5 text-muted">
+                                <h5>No Family Members Registered</h5>
+                                <p class="small text-muted mb-3">You have not registered any family dependents under your club membership yet.</p>
+                                <button type="button" class="btn btn-outline-primary btn-sm font-weight-bold px-3" data-toggle="modal" data-target="#addFamilyModal" data-bs-toggle="modal" data-bs-target="#addFamilyModal">
+                                    ➕ Add Dependent Now
+                                </button>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 3: Profile & Contact Details (With Email OTP Verification) -->
+                <div class="tab-pane fade" id="tab-profile" role="tabpanel">
+                    <div class="portal-card">
+                        <div class="portal-card-header">
+                            <div>
+                                <h6 class="mb-0 font-weight-bold text-dark">👤 Member Profile & Contact Verification</h6>
+                                <span class="small text-muted">Changes to email and mobile numbers require Email OTP verification</span>
+                            </div>
+                        </div>
+                        <div class="card-body p-4">
+                            <div class="row mb-4">
+                                <div class="col-md-6 mb-3">
+                                    <label class="small text-muted font-weight-bold mb-1">Full Member Name</label>
+                                    <input type="text" class="form-control form-control-sm bg-light" value="{{ d.member_name }}" readonly>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="small text-muted font-weight-bold mb-1">Member ID / Customer Code</label>
+                                    <input type="text" class="form-control form-control-sm bg-light font-weight-bold text-primary" value="{{ d.member_id }}" readonly>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="small text-muted font-weight-bold mb-1">Membership Plan</label>
+                                    <input type="text" class="form-control form-control-sm bg-light" value="{{ d.membership_plan }}" readonly>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="small text-muted font-weight-bold mb-1">Membership Category</label>
+                                    <input type="text" class="form-control form-control-sm bg-light" value="{{ d.customer_group }}" readonly>
+                                </div>
+                            </div>
+
+                            <hr>
+                            <h6 class="font-weight-bold text-dark mb-3">🔐 Update Contact Details (Protected with Email OTP)</h6>
+                            <form id="contactUpdateForm" onsubmit="requestContactUpdateOTP(event)">
+                                <div class="row">
+                                    <div class="col-md-6 form-group mb-3">
+                                        <label class="small font-weight-bold text-muted mb-1">Registered Email Address</label>
+                                        <input type="email" id="edit_member_email" class="form-control" value="{{ d.email }}" required>
+                                        <small class="text-muted">OTP will be dispatched to your registered email to confirm.</small>
+                                    </div>
+                                    <div class="col-md-6 form-group mb-3">
+                                        <label class="small font-weight-bold text-muted mb-1">Mobile Phone Number</label>
+                                        <input type="tel" id="edit_member_mobile" class="form-control" value="{{ d.mobile }}" placeholder="10-digit mobile number">
+                                    </div>
+                                </div>
+                                <div id="otpReqStatus" class="small mb-2"></div>
+                                <button type="submit" id="btnRequestOTP" class="btn btn-primary font-weight-bold px-4 py-2" style="border-radius: 8px;">
+                                    Send Email OTP to Verify &rarr;
+                                </button>
+                            </form>
+
+                            <!-- OTP Verification Drawer -->
+                            <div id="otpVerificationDrawer" class="mt-4 p-4 border rounded bg-light" style="display: none; border-radius: 12px;">
+                                <h6 class="font-weight-bold text-dark mb-1">Enter 6-Digit Email OTP</h6>
+                                <p class="small text-muted mb-3">Please check your email inbox and enter the 6-digit confirmation code below:</p>
+                                <form id="verifyOtpForm" onsubmit="submitVerifyOTP(event)">
+                                    <div class="form-group mb-3" style="max-width: 240px;">
+                                        <input type="text" id="entered_otp_val" class="form-control text-center font-weight-bold" maxlength="6" placeholder="• • • • • •" style="letter-spacing: 6px; font-size: 1.25rem;" required>
+                                    </div>
+                                    <div id="otpVerifyStatus" class="small mb-2"></div>
+                                    <button type="submit" id="btnConfirmOTP" class="btn btn-success font-weight-bold px-4 py-2" style="border-radius: 8px;">
+                                        Confirm & Save New Details
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 4: Activity (Venue Reservations & Event Passes) -->
+                <div class="tab-pane fade" id="tab-activity" role="tabpanel">
+                    <div class="portal-card mb-4">
+                        <div class="portal-card-header">
+                            <h6 class="mb-0 font-weight-bold text-dark">🏛️ Your Venue Reservations</h6>
+                            <a href="/venue-availability" class="btn btn-outline-primary btn-sm font-weight-bold">Book Another Venue</a>
+                        </div>
+                        <div class="card-body p-0">
+                            {% if d.bookings %}
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="table-light small text-muted">
+                                        <tr>
+                                            <th>Ref #</th>
+                                            <th>Venue</th>
+                                            <th>Shift</th>
+                                            <th>Reserved On</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="small">
+                                        {% for b in d.bookings %}
+                                        <tr>
+                                            <td><strong>{{ b.name }}</strong></td>
+                                            <td>{{ b.selected_venue }}</td>
+                                            <td>{{ b.venue_shift }}</td>
+                                            <td>{{ b.creation.strftime('%d-%b-%Y') if b.creation else '' }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <div class="text-center py-4 text-muted small">
+                                No active venue bookings recorded. <a href="/venue-availability">Check live venue availability &rarr;</a>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="portal-card">
+                        <div class="portal-card-header">
+                            <h6 class="mb-0 font-weight-bold text-dark">🎟️ Your Club Event Passes</h6>
+                            <a href="/" class="btn btn-outline-primary btn-sm font-weight-bold">View Upcoming Events</a>
+                        </div>
+                        <div class="card-body p-0">
+                            {% if d.event_registrations %}
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="table-light small text-muted">
+                                        <tr>
+                                            <th>Pass #</th>
+                                            <th>Event</th>
+                                            <th>Attendees</th>
+                                            <th>Mobile</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="small">
+                                        {% for ev in d.event_registrations %}
+                                        <tr>
+                                            <td><strong>{{ ev.name }}</strong></td>
+                                            <td>{{ ev.event_name }}</td>
+                                            <td>{{ ev.attendees_count }} Passes</td>
+                                            <td>{{ ev.mobile }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <div class="text-center py-4 text-muted small">
+                                No event passes registered yet. <a href="/">Explore club events &rarr;</a>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- MODAL: Invoice Details & PDF Download -->
+<div class="modal fade" id="invoiceDetailsModal" tabindex="-1" role="dialog" aria-hidden="true" style="z-index: 1060;">
+    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 18px; overflow: hidden;">
+            <div class="modal-header bg-light py-3">
+                <div>
+                    <h5 class="modal-title font-weight-bold text-dark mb-0">📄 Invoice Breakdown: <span id="dtl_inv_name" class="text-primary">&mdash;</span></h5>
+                    <span class="small text-muted" id="dtl_inv_dates">Billed: &mdash; &bull; Due: &mdash;</span>
+                </div>
+                <button type="button" class="close btn btn-link text-muted" data-dismiss="modal" data-bs-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body p-4">
+                <div id="invLoadingState" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <div class="small text-muted mt-2">Loading invoice details & line items...</div>
+                </div>
+
+                <div id="invLoadedState" style="display: none;">
+                    <!-- Line Items Table -->
+                    <div class="table-responsive mb-3">
+                        <table class="table table-bordered table-sm mb-0">
+                            <thead class="table-light small">
+                                <tr>
+                                    <th>Item / Description</th>
+                                    <th class="text-center" style="width: 80px;">Qty</th>
+                                    <th class="text-right" style="width: 120px;">Rate</th>
+                                    <th class="text-right" style="width: 130px;">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dtl_inv_items_body" class="small">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Totals and Taxes Breakdown -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="p-3 border rounded bg-light" style="border-radius: 10px;">
+                                <div class="small text-muted mb-1">Reconciliation Status:</div>
+                                <div id="dtl_inv_status_badge" class="mb-2"></div>
+                                <div class="small text-muted" id="dtl_inv_utr_box"></div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="p-3 border rounded bg-light" style="border-radius: 10px;">
+                                <div class="d-flex justify-content-between mb-1 small">
+                                    <span class="text-muted">Net Total:</span>
+                                    <span class="font-weight-bold" id="dtl_inv_net">&#8377;0.00</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-1 small" id="dtl_taxes_row">
+                                    <span class="text-muted">GST & Taxes:</span>
+                                    <span class="font-weight-bold" id="dtl_inv_tax">&#8377;0.00</span>
+                                </div>
+                                <div class="d-flex justify-content-between border-top pt-2">
+                                    <span class="font-weight-bold">Grand Total:</span>
+                                    <strong class="text-dark font-weight-bold" id="dtl_inv_grand" style="font-size: 1.1rem;">&#8377;0.00</strong>
+                                </div>
+                                <div class="d-flex justify-content-between pt-1">
+                                    <span class="small text-muted">Outstanding Balance:</span>
+                                    <strong class="text-danger font-weight-bold" id="dtl_inv_bal">&#8377;0.00</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light py-2 d-flex justify-content-between">
+                <a id="dtl_btn_pdf" href="#" target="_blank" class="btn btn-outline-danger font-weight-bold px-3 btn-sm">
+                    📥 Download Invoice PDF
+                </a>
+                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: Federal Bank Unique Member UPI Payment Gateway (Total Outstanding) -->
+<div class="modal fade" id="paymentModal" tabindex="-1" role="dialog" aria-hidden="true" style="z-index: 1060;">
+    <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 440px;">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 18px; overflow: hidden;">
+            <div class="modal-header text-white" style="background: linear-gradient(135deg, #0d2946 0%, #163c63 100%); padding: 18px 24px;">
+                <div class="d-flex align-items-center gap-2">
+                    <img src="/files/1000333700.png" alt="ROC" style="width: 32px; height: 32px; border-radius: 50%; background: #fff; padding: 2px;">
+                    <div>
+                        <h5 class="modal-title font-weight-bold text-white mb-0" style="font-size: 1.12rem;">⚡ Federal Bank Member UPI</h5>
+                        <span class="small text-white-50" style="font-size: 0.78rem;">Railway Officers' Club &bull; Zero Gateway Fee</span>
+                    </div>
+                </div>
+                <button type="button" class="close text-white" data-dismiss="modal" data-bs-dismiss="modal" aria-label="Close" style="background: transparent; border: none; font-size: 1.6rem; opacity: 0.85;">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            
+            <div class="modal-body p-4 text-center">
+                <div id="upiLoadingState" class="py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <div class="small text-muted mt-2">Loading Federal Bank UPI payment details...</div>
+                </div>
+
+                <div id="upiLoadedState" style="display: none;">
+                    <span class="small text-muted d-block mb-1">Total Outstanding Club Balance:</span>
+                    <h3 class="font-weight-bold text-primary mb-2">&#8377;<span id="payTotalAmount">0.00</span></h3>
+                    
+                    <div class="small text-muted mb-2">
+                        Clearing <strong id="payInvoicesCount">0</strong> pending invoices
+                    </div>
+
+                    <!-- Dynamic UPI QR Code Box -->
+                    <div class="my-3 p-2 d-inline-block bg-white border rounded shadow-sm" style="border-radius: 14px;">
+                        <img id="dynamicUpiQr" src="" alt="Scan with GPay/PhonePe/Paytm" style="width: 175px; height: 175px; display: block; margin: 0 auto;">
+                    </div>
+                    
+                    <div class="small text-muted mb-3 font-weight-bold" style="font-size: 0.78rem;">
+                        📷 SCAN WITH ANY UPI APP (GPAY / PHONEPE / PAYTM / BHIM)
+                    </div>
+
+                    <!-- Direct App Launch Button for Mobile Viewers -->
+                    <div class="mb-3">
+                        <a id="btnUpiDeepLink" href="#" class="btn btn-success btn-block w-100 font-weight-bold py-2 shadow-sm" style="border-radius: 10px; font-size: 0.95rem;">
+                            🚀 Pay Total Dues via UPI App &rarr;
+                        </a>
+                    </div>
+
+                    <!-- Unique Federal Bank VPA Box -->
+                    <div class="p-2 mb-3 border rounded bg-light text-left" style="border-radius: 10px; font-size: 0.84rem;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted">Unique Member VPA:</span>
+                            <code class="font-weight-bold text-primary" id="memberUniqueVpa" style="font-size: 0.92rem;">roc...</code>
+                        </div>
+                    </div>
+
+                    <!-- Reconciliation Submission Box -->
+                    <div class="border-top pt-3 text-left">
+                        <label class="small font-weight-bold text-muted mb-1">Bank Ref No. / UTR (Optional)</label>
+                        <input type="text" id="payUtrRef" class="form-control form-control-sm mb-2" placeholder="12-digit UTR from GPay / PhonePe">
+                        
+                        <div id="paymentStatusBox" class="small mb-2"></div>
+
+                        <button type="button" id="btnConfirmPay" class="btn btn-outline-primary btn-block w-100 font-weight-bold py-2 btn-sm" onclick="submitTotalUnderReconciliation()">
+                            &#10003; I Have Paid &bull; Mark Invoices Under Reconciliation
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: Add Family Member -->
+<div class="modal fade" id="addFamilyModal" tabindex="-1" role="dialog" aria-hidden="true" style="z-index: 1060;">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title font-weight-bold text-dark mb-0">👨‍👩‍👧 Add Family Dependent</h5>
+                <button type="button" class="close btn btn-link text-muted" data-dismiss="modal" data-bs-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form id="addFamilyForm" onsubmit="submitAddFamily(event)">
+                <div class="modal-body p-4">
+                    <div class="form-group mb-3">
+                        <label class="small font-weight-bold text-muted mb-1">Full Name *</label>
+                        <input type="text" id="fm_full_name" class="form-control" required placeholder="Dependent's full name">
+                    </div>
+                    <div class="form-group mb-3">
+                        <label class="small font-weight-bold text-muted mb-1">Dependent Photograph (For Security Gate ID) 📸</label>
+                        <input type="file" id="fm_photo" class="form-control-file form-control" accept="image/*" onchange="previewFamilyPhoto(this)">
+                        <div class="small text-muted mt-1">Upload a clear passport-style face photo for gate verification.</div>
+                        <div id="fm_photo_preview_box" class="mt-2 text-center" style="display: none;">
+                            <img id="fm_photo_preview_img" src="#" alt="Preview" style="width: 80px; height: 80px; border-radius: 12px; object-fit: cover; border: 2px solid #0d2946;">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 form-group mb-3">
+                            <label class="small font-weight-bold text-muted mb-1">Relationship *</label>
+                            <select id="fm_relationship" class="form-control form-select" required>
+                                <option value="Spouse">Spouse</option>
+                                <option value="Son">Son</option>
+                                <option value="Daughter">Daughter</option>
+                                <option value="Father">Father</option>
+                                <option value="Mother">Mother</option>
+                                <option value="Ward">Ward</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 form-group mb-3">
+                            <label class="small font-weight-bold text-muted mb-1">Date of Birth</label>
+                            <input type="date" id="fm_dob" class="form-control">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 form-group mb-3">
+                            <label class="small font-weight-bold text-muted mb-1">Phone Number</label>
+                            <input type="tel" id="fm_phone" class="form-control" placeholder="10-digit mobile">
+                        </div>
+                        <div class="col-md-6 form-group mb-3">
+                            <label class="small font-weight-bold text-muted mb-1">Blood Group</label>
+                            <select id="fm_blood_group" class="form-control form-select">
+                                <option value="">Select</option>
+                                <option value="A+">A+</option>
+                                <option value="A-">A-</option>
+                                <option value="B+">B+</option>
+                                <option value="B-">B-</option>
+                                <option value="O+">O+</option>
+                                <option value="O-">O-</option>
+                                <option value="AB+">AB+</option>
+                                <option value="AB-">AB-</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="alert alert-warning py-2 px-3 small mb-2" style="background: #fffbeb; color: #b45309;">
+                        ⏳ <strong>Note:</strong> Submitted details will be queued as <em>Pending Club Approval</em>. Once verified by the Club Office, member privileges are granted.
+                    </div>
+                    <div id="familySubmitStatus" class="small mb-2"></div>
+                </div>
+                <div class="modal-footer bg-light py-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-dismiss="modal" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" id="btnSubmitFamily" class="btn btn-primary font-weight-bold px-4">Submit for Club Approval</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+
+// Function to switch tabs using the Modern Navigation Tiles
+function selectTileTab(tabContentId, tileId) {
+    // 1. Remove active class from all tiles
+    document.querySelectorAll('.portal-tile-btn').forEach(function(tile) {
+        tile.classList.remove('active');
+    });
+
+    // 2. Add active class to clicked tile
+    var activeTile = document.getElementById(tileId);
+    if (activeTile) {
+        activeTile.classList.add('active');
+    }
+
+    // 3. Hide all tab panes and show target
+    document.querySelectorAll('.tab-pane').forEach(function(pane) {
+        pane.classList.remove('show', 'active');
+    });
+
+    var targetPane = document.getElementById(tabContentId);
+    if (targetPane) {
+        targetPane.classList.add('show', 'active');
+    }
+
+    // Scroll smoothly to tab content on mobile
+    if (window.innerWidth < 992 && targetPane) {
+        targetPane.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+
+// Preview uploaded photo for new family member
+var familyPhotoBase64 = null;
+function previewFamilyPhoto(input) {
+    if (input.files && input.files[0]) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            familyPhotoBase64 = e.target.result;
+            document.getElementById('fm_photo_preview_img').src = familyPhotoBase64;
+            document.getElementById('fm_photo_preview_box').style.display = 'block';
+        };
+        reader.readAsDataURL(input.files[0]);
+    } else {
+        familyPhotoBase64 = null;
+        document.getElementById('fm_photo_preview_box').style.display = 'none';
+    }
+}
+
+// Open Family Member Gate ID Pass Modal
+function openFamilyGatePass(depId, fullName, rel, photoUrl, qrCode, approvalStatus) {
+    document.getElementById('famModalName').innerText = fullName;
+    document.getElementById('famModalRel').innerText = 'Relationship: ' + rel + ' • ID: ' + depId;
+    
+    // Photo
+    var photoEl = document.getElementById('famModalPhoto');
+    if (photoUrl) {
+        photoEl.src = photoUrl;
+    } else {
+        photoEl.src = '/files/1000333700.png';
+    }
+
+    // Badge
+    var badgeEl = document.getElementById('famModalBadge');
+    if (approvalStatus === 'Approved') {
+        badgeEl.className = 'badge badge-success position-absolute';
+        badgeEl.innerText = '✓ Approved';
+    } else if (approvalStatus === 'Rejected') {
+        badgeEl.className = 'badge badge-danger position-absolute';
+        badgeEl.innerText = '✕ Rejected';
+    } else {
+        badgeEl.className = 'badge badge-warning position-absolute text-dark';
+        badgeEl.innerText = '⏳ Pending Approval';
+    }
+
+    // QR Code
+    var qrEl = document.getElementById('famModalQR');
+    if (qrCode) {
+        qrEl.src = qrCode;
+    } else {
+        qrEl.src = '';
+    }
+
+    var modalEl = document.getElementById('familyGatePassModal');
+    if (typeof jQuery !== 'undefined' && typeof jQuery.fn.modal === 'function') {
+        $(modalEl).modal('show');
+    } else if (window.bootstrap && bootstrap.Modal) {
+        new bootstrap.Modal(modalEl).show();
+    }
+}
+
+function switchTab(tabId) {
+    var el = document.getElementById(tabId);
+    if (el) {
+        if (typeof jQuery !== 'undefined' && typeof jQuery.fn.tab === 'function') {
+            $(el).tab('show');
+        } else if (window.bootstrap && bootstrap.Tab) {
+            new bootstrap.Tab(el).show();
+        } else {
+            el.click();
+        }
+    }
+}
+
+function viewInvoiceDetails(invName) {
+    document.getElementById('dtl_inv_name').innerText = invName;
+    document.getElementById('invLoadingState').style.display = 'block';
+    document.getElementById('invLoadedState').style.display = 'none';
+
+    var modalEl = document.getElementById('invoiceDetailsModal');
+    if (typeof jQuery !== 'undefined' && typeof jQuery.fn.modal === 'function') {
+        $(modalEl).modal('show');
+    } else if (window.bootstrap && bootstrap.Modal) {
+        new bootstrap.Modal(modalEl).show();
+    } else {
+        modalEl.classList.add('show');
+        modalEl.style.display = 'block';
+    }
+
+    frappe.call({
+        method: 'club_erp.api.member_portal.get_invoice_details',
+        args: { invoice_name: invName },
+        callback: function(r) {
+            if (r.message) {
+                const inv = r.message;
+                document.getElementById('dtl_inv_dates').innerText = `Billed: ${inv.posting_date} • Due: ${inv.due_date || 'Immediate'}`;
+                
+                // Line items
+                const tbody = document.getElementById('dtl_inv_items_body');
+                tbody.innerHTML = '';
+                (inv.items || []).forEach(it => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td><strong>${it.item_name}</strong><br><small class="text-muted">${it.item_code}</small></td>
+                        <td class="text-center">${it.qty}</td>
+                        <td class="text-right">&#8377;${Number(it.rate).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+                        <td class="text-right font-weight-bold">&#8377;${Number(it.amount).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+                // Totals
+                document.getElementById('dtl_inv_net').innerHTML = `&#8377;${Number(inv.net_total || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
+                document.getElementById('dtl_inv_tax').innerHTML = `&#8377;${Number(inv.total_taxes_and_charges || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
+                document.getElementById('dtl_inv_grand').innerHTML = `&#8377;${Number(inv.grand_total || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
+                document.getElementById('dtl_inv_bal').innerHTML = `&#8377;${Number(inv.outstanding_amount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
+
+                // Status Badge
+                const badgeBox = document.getElementById('dtl_inv_status_badge');
+                if (inv.reconciliation_status === 'Reconciled' || inv.status === 'Paid') {
+                    badgeBox.innerHTML = '<span class="badge-paid">&#10003; Reconciled & Settled</span>';
+                } else if (inv.reconciliation_status === 'Under Reconciliation') {
+                    badgeBox.innerHTML = '<span class="badge" style="background: #fef3c7; color: #b45309; font-weight: 700; padding: 4px 8px; border-radius: 6px;">⏳ Under Bank Reconciliation</span>';
+                } else {
+                    badgeBox.innerHTML = '<span class="badge-unpaid">Pending Payment</span>';
+                }
+
+                // UTR info
+                const utrBox = document.getElementById('dtl_inv_utr_box');
+                if (inv.utr_ref) {
+                    utrBox.innerHTML = `Submitted Bank UTR: <code>${inv.utr_ref}</code>`;
+                } else {
+                    utrBox.innerHTML = '';
+                }
+
+                // PDF Button
+                document.getElementById('dtl_btn_pdf').href = inv.pdf_url;
+
+                document.getElementById('invLoadingState').style.display = 'none';
+                document.getElementById('invLoadedState').style.display = 'block';
+            }
+        }
+    });
+}
+
+function openTotalOutstandingModal() {
+    document.getElementById('upiLoadingState').style.display = 'block';
+    document.getElementById('upiLoadedState').style.display = 'none';
+    document.getElementById('paymentStatusBox').innerHTML = '';
+    document.getElementById('payUtrRef').value = '';
+
+    var modalEl = document.getElementById('paymentModal');
+    if (typeof jQuery !== 'undefined' && typeof jQuery.fn.modal === 'function') {
+        $(modalEl).modal('show');
+    } else if (window.bootstrap && bootstrap.Modal) {
+        new bootstrap.Modal(modalEl).show();
+    } else {
+        modalEl.classList.add('show');
+        modalEl.style.display = 'block';
+    }
+
+    frappe.call({
+        method: 'club_erp.api.member_portal.get_total_outstanding_upi_details',
+        callback: function(r) {
+            if (r.message && r.message.has_dues) {
+                const res = r.message;
+                document.getElementById('payTotalAmount').innerText = Number(res.total_outstanding).toLocaleString('en-IN', {minimumFractionDigits: 2});
+                document.getElementById('payInvoicesCount').innerText = res.open_invoices_count;
+                document.getElementById('memberUniqueVpa').innerText = res.vpa;
+                document.getElementById('dynamicUpiQr').src = res.qr_code;
+                document.getElementById('btnUpiDeepLink').href = res.upi_uri;
+                
+                if (res.is_under_reconciliation) {
+                    document.getElementById('paymentStatusBox').innerHTML = '<div class="alert alert-warning py-1 px-2 small mb-2">⏳ These invoices are currently marked <strong>Under Reconciliation</strong>. Federal Bank statement matching will complete settlement.</div>';
+                }
+
+                document.getElementById('upiLoadingState').style.display = 'none';
+                document.getElementById('upiLoadedState').style.display = 'block';
+            } else if (r.message && !r.message.has_dues) {
+                document.getElementById('upiLoadingState').innerHTML = '<div class="alert alert-success py-3 px-3">🎉 All club invoices and dues are fully settled. No payment required.</div>';
+            }
+        }
+    });
+}
+
+function submitTotalUnderReconciliation() {
+    var utr = document.getElementById('payUtrRef').value.trim();
+    var statusBox = document.getElementById('paymentStatusBox');
+    var btn = document.getElementById('btnConfirmPay');
+    
+    btn.disabled = true;
+    btn.innerText = 'Submitting...';
+    
+    frappe.call({
+        method: 'club_erp.api.member_portal.mark_all_under_reconciliation',
+        args: {
+            utr_no: utr
+        },
+        callback: function(r) {
+            btn.disabled = false;
+            btn.innerText = '✓ I Have Paid • Mark Invoices Under Reconciliation';
+            if (r.message && r.message.success) {
+                statusBox.innerHTML = '<div class="alert alert-success py-2 px-3 small">' + r.message.message + '</div>';
+                setTimeout(function() {
+                    window.location.reload();
+                }, 1800);
+            } else {
+                statusBox.innerHTML = '<div class="alert alert-danger py-2 px-3 small">Update failed. Please retry.</div>';
+            }
+        }
+    });
+}
+
+function requestContactUpdateOTP(e) {
+    e.preventDefault();
+    var btn = document.getElementById('btnRequestOTP');
+    var statusDiv = document.getElementById('otpReqStatus');
+    var newEmail = document.getElementById('edit_member_email').value.trim();
+    var newMobile = document.getElementById('edit_member_mobile').value.trim();
+    
+    btn.disabled = true;
+    btn.innerText = 'Sending OTP...';
+    statusDiv.innerHTML = '';
+    
+    frappe.call({
+        method: 'club_erp.api.member_portal.send_contact_update_otp',
+        args: { new_email: newEmail, new_mobile: newMobile },
+        callback: function(r) {
+            btn.disabled = false;
+            btn.innerText = 'Send Email OTP to Verify →';
+            if (r.message && r.message.success) {
+                statusDiv.innerHTML = '<div class="alert alert-success py-2 px-3 small">' + r.message.message + '</div>';
+                document.getElementById('otpVerificationDrawer').style.display = 'block';
+                document.getElementById('entered_otp_val').focus();
+            } else {
+                statusDiv.innerHTML = '<div class="alert alert-danger py-2 px-3 small">Failed to send OTP. Please try again.</div>';
+            }
+        }
+    });
+}
+
+function submitVerifyOTP(e) {
+    e.preventDefault();
+    var btn = document.getElementById('btnConfirmOTP');
+    var statusDiv = document.getElementById('otpVerifyStatus');
+    var otpVal = document.getElementById('entered_otp_val').value.trim();
+    
+    btn.disabled = true;
+    btn.innerText = 'Verifying...';
+    statusDiv.innerHTML = '';
+    
+    frappe.call({
+        method: 'club_erp.api.member_portal.verify_and_update_contact',
+        args: { entered_otp: otpVal },
+        callback: function(r) {
+            btn.disabled = false;
+            btn.innerText = 'Confirm & Save New Details';
+            if (r.message && r.message.success) {
+                statusDiv.innerHTML = '<div class="alert alert-success py-2 px-3 small">' + r.message.message + '</div>';
+                setTimeout(function() {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                statusDiv.innerHTML = '<div class="alert alert-danger py-2 px-3 small">Invalid OTP. Please try again.</div>';
+            }
+        }
+    });
+}
+
+function submitAddFamily(e) {
+    e.preventDefault();
+    var btn = document.getElementById('btnSubmitFamily');
+    var statusDiv = document.getElementById('familySubmitStatus');
+    
+    var fullName = document.getElementById('fm_full_name').value.trim();
+    var rel = document.getElementById('fm_relationship').value;
+    var dob = document.getElementById('fm_dob').value;
+    var phone = document.getElementById('fm_phone').value.trim();
+    var blood = document.getElementById('fm_blood_group').value;
+    
+    btn.disabled = true;
+    btn.innerText = 'Submitting...';
+    statusDiv.innerHTML = '';
+    
+    frappe.call({
+        method: 'club_erp.api.member_portal.add_family_member',
+        args: {
+            full_name: fullName,
+            relationship: rel,
+            date_of_birth: dob,
+            phone_number: phone,
+            blood_group: blood,
+            photo_base64: familyPhotoBase64
+        },
+        callback: function(r) {
+            btn.disabled = false;
+            btn.innerText = 'Submit for Club Approval';
+            if (r.message && r.message.success) {
+                statusDiv.innerHTML = '<div class="alert alert-success py-2 px-3 small">' + r.message.message + '</div>';
+                setTimeout(function() {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                statusDiv.innerHTML = '<div class="alert alert-danger py-2 px-3 small">Submission failed. Please check details.</div>';
+            }
+        }
+    });
+}
+</script>
+{% endblock %}
