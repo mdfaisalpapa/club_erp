@@ -593,7 +593,7 @@ def handle_post_login(login_manager):
 
 
 @frappe.whitelist()
-def get_management_dashboard_metrics():
+def get_management_dashboard_metrics(fiscal_year=None):
     """Returns high-level financial health & operational KPIs for Management Committee"""
     user = frappe.session.user
     if user == "Guest":
@@ -605,6 +605,24 @@ def get_management_dashboard_metrics():
 
     today = datetime.date.today()
     first_of_this_month = today.replace(day=1)
+
+    # Resolve Fiscal Year
+    fiscal_years = frappe.db.sql("""
+        SELECT name, year_start_date, year_end_date 
+        FROM `tabFiscal Year` 
+        ORDER BY year_start_date DESC
+    """, as_dict=True)
+
+    if not fiscal_year and fiscal_years:
+        fiscal_year = fiscal_years[0]["name"]
+
+    fy_record = next((f for f in fiscal_years if f["name"] == fiscal_year), None)
+    if not fy_record and fiscal_years:
+        fy_record = fiscal_years[0]
+        fiscal_year = fy_record["name"]
+
+    fy_start = fy_record["year_start_date"] if fy_record else datetime.date(today.year, 4, 1)
+    fy_end = fy_record["year_end_date"] if fy_record else datetime.date(today.year + 1, 3, 31)
 
     # 1. Bank and Cash Liquidity Balances from General Ledger
     # Accounts: Bank Accounts (group or type Bank) & Cash Accounts
@@ -696,7 +714,43 @@ def get_management_dashboard_metrics():
 
     total_upi_reconciled = float(reconciled_upi_invoices[0]["total_upi"]) if reconciled_upi_invoices else 0.0
 
-    # 5. Top 5 Defaulter Accounts (For executive intervention)
+    # 5. Annual Billed vs Collected for Each Stream in the Fiscal Year
+    annual_streams = frappe.db.sql("""
+        SELECT 
+            ii.item_group,
+            COALESCE(SUM(ii.base_net_amount), 0) as net_billed,
+            COALESCE(SUM(ii.base_amount), 0) as gross_billed,
+            COALESCE(SUM(
+                CASE 
+                    WHEN si.grand_total > 0 THEN (ii.base_amount / si.grand_total) * (si.grand_total - si.outstanding_amount)
+                    ELSE 0 
+                END
+            ), 0) as collected_amount,
+            COALESCE(SUM(
+                CASE 
+                    WHEN si.grand_total > 0 THEN (ii.base_amount / si.grand_total) * si.outstanding_amount
+                    ELSE 0 
+                END
+            ), 0) as outstanding_amount
+        FROM `tabSales Invoice Item` ii
+        JOIN `tabSales Invoice` si ON si.name = ii.parent
+        WHERE si.docstatus = 1 
+          AND si.posting_date BETWEEN %s AND %s
+        GROUP BY ii.item_group
+        ORDER BY gross_billed DESC
+    """, (fy_start, fy_end), as_dict=True)
+
+    total_year_billed = sum(float(s["gross_billed"]) for s in annual_streams)
+    total_year_collected = sum(float(s["collected_amount"]) for s in annual_streams)
+    total_year_due = sum(float(s["outstanding_amount"]) for s in annual_streams)
+    overall_recovery_rate = (total_year_collected / total_year_billed * 100) if total_year_billed > 0 else 0.0
+
+    for s in annual_streams:
+        gb = float(s["gross_billed"])
+        ca = float(s["collected_amount"])
+        s["collection_rate"] = round((ca / gb * 100), 1) if gb > 0 else 0.0
+
+    # 6. Top 5 Defaulter Accounts (For executive intervention)
     top_defaulters = frappe.db.sql("""
         SELECT si.customer, cm.member_name, 
                SUM(si.outstanding_amount) as total_due,
@@ -718,6 +772,8 @@ def get_management_dashboard_metrics():
 
     return {
         "as_of_date": today.strftime("%d-%b-%Y"),
+        "fiscal_year": fiscal_year,
+        "available_fiscal_years": [f["name"] for f in fiscal_years],
         "total_liquidity": total_liquidity,
         "bank_balances": bank_balances,
         "aging": aging,
@@ -725,6 +781,11 @@ def get_management_dashboard_metrics():
         "month_collections": month_collections,
         "total_upi_reconciled": total_upi_reconciled,
         "revenue_streams": revenue_streams,
+        "annual_streams": annual_streams,
+        "total_year_billed": total_year_billed,
+        "total_year_collected": total_year_collected,
+        "total_year_due": total_year_due,
+        "overall_recovery_rate": round(overall_recovery_rate, 1),
         "top_defaulters": top_defaulters,
         "member_stats": member_stats
     }

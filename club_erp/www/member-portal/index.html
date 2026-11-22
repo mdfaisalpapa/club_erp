@@ -834,14 +834,20 @@ body {
                 <!-- TAB: Management Committee Executive Financial Dashboard -->
                 <div class="tab-pane fade" id="tab-committee" role="tabpanel">
                     <div class="portal-card p-4 mb-4" style="border-top: 4px solid #c59b27;">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                             <div>
                                 <h5 class="font-weight-bold text-dark mb-0">🏛️ ROC Management Committee Dashboard</h5>
                                 <span class="small text-muted">Executive Financial Overview &amp; Live Monitoring &bull; As of <span id="mc_as_of">Today</span></span>
                             </div>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="loadManagementDashboard()">
-                                🔄 Refresh
-                            </button>
+                            <div class="d-flex align-items-center gap-2">
+                                <label class="small text-muted mb-0 font-weight-bold d-none d-sm-inline">Fiscal Year:</label>
+                                <select id="mc_fiscal_year_select" class="form-control form-control-sm form-select font-weight-bold text-primary" style="width: auto; display: inline-block; border-radius: 8px;" onchange="loadManagementDashboard(this.value)">
+                                    <option value="">Loading...</option>
+                                </select>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="loadManagementDashboard()">
+                                    🔄 Refresh
+                                </button>
+                            </div>
                         </div>
 
                         <!-- Committee KPI Cards Row -->
@@ -960,25 +966,59 @@ body {
                             </div>
                         </div>
 
-                        <!-- Revenue Stream Breakdown -->
-                        <div class="card border" style="border-radius: 12px;">
-                            <div class="card-header bg-white font-weight-bold small text-uppercase text-muted py-2">
-                                📊 Monthly Revenue By Facility / Stream
+                        <!-- Annual Billed vs Collected by Revenue Stream -->
+                        <div class="card border mb-4 shadow-sm" style="border-radius: 14px; overflow: hidden; border-top: 3px solid #0d2946 !important;">
+                            <div class="card-header bg-white py-3">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap">
+                                    <div>
+                                        <h6 class="font-weight-bold text-dark mb-0">📊 Annual Revenue Streams: Billed vs. Collected</h6>
+                                        <span class="small text-muted">Full fiscal year performance &bull; FY <strong id="mc_stream_fy_label">...</strong></span>
+                                    </div>
+                                    <div class="mt-2 mt-sm-0">
+                                        <span class="badge badge-success px-3 py-2 font-weight-bold" style="font-size: 0.85rem;" id="mc_overall_recovery_badge">
+                                            Overall Recovery: 0%
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
+                            
+                            <!-- Year Stream Overview Summary Row -->
+                            <div class="card-body bg-light border-bottom p-3">
+                                <div class="row text-center g-2">
+                                    <div class="col-4">
+                                        <div class="small text-muted font-weight-bold">Total Year Billed</div>
+                                        <strong class="text-primary font-weight-bold" style="font-size: 1.05rem;" id="mc_total_yr_billed">&#8377;0.00</strong>
+                                    </div>
+                                    <div class="col-4 border-left border-right">
+                                        <div class="small text-muted font-weight-bold">Total Year Collected</div>
+                                        <strong class="text-success font-weight-bold" style="font-size: 1.05rem;" id="mc_total_yr_collected">&#8377;0.00</strong>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="small text-muted font-weight-bold">Outstanding Balance</div>
+                                        <strong class="text-danger font-weight-bold" style="font-size: 1.05rem;" id="mc_total_yr_due">&#8377;0.00</strong>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="table-responsive">
-                                <table class="table table-sm table-striped mb-0 small">
-                                    <thead>
+                                <table class="table table-hover table-striped mb-0 small">
+                                    <thead class="table-light">
                                         <tr>
-                                            <th>Revenue Stream / Category</th>
-                                            <th class="text-right">Invoiced Amount</th>
+                                            <th>Stream / Facility</th>
+                                            <th class="text-right">Billed in Year</th>
+                                            <th class="text-right">Collected</th>
+                                            <th class="text-center" style="width: 140px;">Recovery %</th>
+                                            <th class="text-right">Pending Balance</th>
                                         </tr>
                                     </thead>
-                                    <tbody id="mc_revenue_body">
-                                        <tr><td colspan="2" class="text-center text-muted">Loading...</td></tr>
+                                    <tbody id="mc_annual_streams_body">
+                                        <tr><td colspan="5" class="text-center text-muted py-3">Loading stream performance...</td></tr>
                                     </tbody>
                                 </table>
                             </div>
                         </div>
+
+                        <!-- Revenue Stream Breakdown (Current Month) -->
 
                     </div>
                 </div>
@@ -1219,9 +1259,20 @@ body {
 <script>
 
 // Load Management Committee Dashboard Data
-function loadManagementDashboard() {
+function loadManagementDashboard(selectedFy) {
+    var args = {};
+    if (selectedFy) {
+        args.fiscal_year = selectedFy;
+    } else {
+        var el = document.getElementById('mc_fiscal_year_select');
+        if (el && el.value) {
+            args.fiscal_year = el.value;
+        }
+    }
+
     frappe.call({
         method: "club_erp.api.member_portal.get_management_dashboard_metrics",
+        args: args,
         callback: function(r) {
             if (r.message) {
                 var d = r.message;
@@ -1239,11 +1290,75 @@ function loadManagementDashboard() {
                 document.getElementById('mc_month_invoiced').textContent = '₹' + fmt(d.month_invoiced);
                 document.getElementById('mc_month_collections').textContent = '₹' + fmt(d.month_collections);
 
+                // Populate Fiscal Year Dropdown if not yet filled
+                var fySelect = document.getElementById('mc_fiscal_year_select');
+                if (fySelect && d.available_fiscal_years && (!fySelect.options || fySelect.options.length <= 1 || fySelect.options[0].value === '')) {
+                    fySelect.innerHTML = '';
+                    d.available_fiscal_years.forEach(function(yr) {
+                        var opt = document.createElement('option');
+                        opt.value = yr;
+                        opt.textContent = 'FY ' + yr;
+                        if (yr === d.fiscal_year) {
+                            opt.selected = true;
+                        }
+                        fySelect.appendChild(opt);
+                    });
+                }
+                if (document.getElementById('mc_stream_fy_label')) {
+                    document.getElementById('mc_stream_fy_label').textContent = d.fiscal_year;
+                }
+                if (document.getElementById('mc_overall_recovery_badge')) {
+                    document.getElementById('mc_overall_recovery_badge').textContent = 'Overall Recovery: ' + d.overall_recovery_rate + '%';
+                }
+                if (document.getElementById('mc_total_yr_billed')) {
+                    document.getElementById('mc_total_yr_billed').textContent = '₹' + fmt(d.total_year_billed);
+                    document.getElementById('mc_total_yr_collected').textContent = '₹' + fmt(d.total_year_collected);
+                    document.getElementById('mc_total_yr_due').textContent = '₹' + fmt(d.total_year_due);
+                }
+
                 // Aging
                 document.getElementById('mc_age_0_30').textContent = '₹' + fmt(d.aging.current_0_30);
                 document.getElementById('mc_age_31_60').textContent = '₹' + fmt(d.aging.aging_31_60);
                 document.getElementById('mc_age_61_90').textContent = '₹' + fmt(d.aging.aging_61_90);
                 document.getElementById('mc_age_90_plus').textContent = '₹' + fmt(d.aging.aging_90_plus);
+
+                // Annual Streams Billed vs Collected
+                var streamBody = document.getElementById('mc_annual_streams_body');
+                if (streamBody) {
+                    var strHtml = '';
+                    if (d.annual_streams && d.annual_streams.length > 0) {
+                        d.annual_streams.forEach(function(st) {
+                            var rate = st.collection_rate || 0;
+                            var badgeClass = 'badge-success';
+                            var barClass = 'bg-success';
+                            if (rate < 60) {
+                                badgeClass = 'badge-danger';
+                                barClass = 'bg-danger';
+                            } else if (rate < 80) {
+                                badgeClass = 'badge-warning text-dark';
+                                barClass = 'bg-warning';
+                            }
+
+                            strHtml += '<tr>';
+                            strHtml += '<td><strong>' + (st.item_group || 'General') + '</strong></td>';
+                            strHtml += '<td class="text-right font-weight-bold text-dark">₹' + fmt(st.gross_billed) + '</td>';
+                            strHtml += '<td class="text-right font-weight-bold text-success">₹' + fmt(st.collected_amount) + '</td>';
+                            strHtml += '<td class="text-center">';
+                            strHtml += '  <div class="d-flex align-items-center justify-content-center gap-1">';
+                            strHtml += '    <div class="progress flex-grow-1" style="height: 7px; min-width: 60px; margin-right: 6px; background-color: #e2e8f0; border-radius: 4px;">';
+                            strHtml += '      <div class="progress-bar ' + barClass + '" role="progressbar" style="width: ' + Math.min(rate, 100) + '%;"></div>';
+                            strHtml += '    </div>';
+                            strHtml += '    <span class="badge ' + badgeClass + ' font-weight-bold" style="font-size: 0.78rem;">' + rate + '%</span>';
+                            strHtml += '  </div>';
+                            strHtml += '</td>';
+                            strHtml += '<td class="text-right font-weight-bold ' + (st.outstanding_amount > 0 ? 'text-danger' : 'text-muted') + '">₹' + fmt(st.outstanding_amount) + '</td>';
+                            strHtml += '</tr>';
+                        });
+                    } else {
+                        strHtml = '<tr><td colspan="5" class="text-center text-muted py-3">No billed streams recorded for this fiscal year.</td></tr>';
+                    }
+                    streamBody.innerHTML = strHtml;
+                }
 
                 // Bank balances table
                 var bankHtml = '';
@@ -1266,17 +1381,6 @@ function loadManagementDashboard() {
                     defHtml = '<tr><td colspan="3" class="text-center text-muted">Zero overdue accounts!</td></tr>';
                 }
                 document.getElementById('mc_defaulters_body').innerHTML = defHtml;
-
-                // Revenue streams table
-                var revHtml = '';
-                if (d.revenue_streams && d.revenue_streams.length > 0) {
-                    d.revenue_streams.forEach(function(rev) {
-                        revHtml += '<tr><td><strong>' + (rev.item_group || 'General Facilities') + '</strong></td><td class="text-right font-weight-bold text-dark">₹' + fmt(rev.amount) + '</td></tr>';
-                    });
-                } else {
-                    revHtml = '<tr><td colspan="2" class="text-center text-muted">No billings generated this month yet</td></tr>';
-                }
-                document.getElementById('mc_revenue_body').innerHTML = revHtml;
             }
         }
     });
