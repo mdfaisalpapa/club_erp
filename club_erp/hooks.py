@@ -261,7 +261,8 @@ fixtures = [
     {"dt": "Property Setter", "filters": [["module", "=", "Club Erp"]]},
     {"dt": "Server Script", "filters": [["module", "=", "Club Erp"]]},
     {"dt": "Client Script", "filters": [["module", "=", "Club Erp"]]},
-    {"dt": "Custom DocPerm"} # This line captures all 73 permission overrides
+    {"dt": "Custom DocPerm"},
+    {"dt": "Role", "filters": [["role_name", "=", "Club Management Committee"]]}
 ]
 doc_events = {
     "Subscription": {

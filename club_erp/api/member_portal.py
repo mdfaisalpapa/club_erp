@@ -148,8 +148,13 @@ def get_member_portal_data():
         LIMIT 10
     """, (member_id, user), as_dict=True) if frappe.db.table_exists("tabClub Event Registration") else []
 
+    # Check if user has Management Committee access
+    user_roles = frappe.get_roles(user)
+    is_committee = "Club Management Committee" in user_roles or "System Manager" in user_roles or user == "Administrator"
+
     return {
         "is_member": True,
+        "is_committee": is_committee,
         "member_id": member_id,
         "customer": customer_id,
         "member_name": member_record["member_name"],
@@ -585,3 +590,142 @@ def handle_post_login(login_manager):
         frappe.local.response["home_page"] = redirect_target
         frappe.local.response["redirect_to"] = redirect_target
         frappe.cache.hset("redirect_after_login", user, redirect_target)
+
+
+@frappe.whitelist()
+def get_management_dashboard_metrics():
+    """Returns high-level financial health & operational KPIs for Management Committee"""
+    user = frappe.session.user
+    if user == "Guest":
+        frappe.throw(_("Please login to access this data"), frappe.PermissionError)
+
+    user_roles = frappe.get_roles(user)
+    if "Club Management Committee" not in user_roles and "System Manager" not in user_roles and user != "Administrator":
+        frappe.throw(_("Access restricted to Management Committee members"), frappe.PermissionError)
+
+    today = datetime.date.today()
+    first_of_this_month = today.replace(day=1)
+
+    # 1. Bank and Cash Liquidity Balances from General Ledger
+    # Accounts: Bank Accounts (group or type Bank) & Cash Accounts
+    bank_balances = frappe.db.sql("""
+        SELECT a.account_name, a.name as account, 
+               COALESCE(SUM(gle.debit - gle.credit), 0) as balance
+        FROM `tabAccount` a
+        LEFT JOIN `tabGL Entry` gle ON gle.account = a.name AND gle.is_cancelled = 0
+        WHERE a.account_type IN ('Bank', 'Cash') AND a.is_group = 0
+        GROUP BY a.name, a.account_name
+        ORDER BY balance DESC
+    """, as_dict=True)
+
+    total_liquidity = sum(float(b["balance"]) for b in bank_balances)
+
+    # 2. Member Receivables Aging Breakdown
+    # Current (0-30 days), 31-60 days, 61-90 days, 90+ days
+    aging = {
+        "current_0_30": 0.0,
+        "aging_31_60": 0.0,
+        "aging_61_90": 0.0,
+        "aging_90_plus": 0.0,
+        "total_receivables": 0.0,
+        "defaulters_count": 0
+    }
+
+    outstanding_invoices = frappe.db.sql("""
+        SELECT name, customer, outstanding_amount, due_date, posting_date
+        FROM `tabSales Invoice`
+        WHERE docstatus = 1 AND outstanding_amount > 0
+    """, as_dict=True)
+
+    defaulter_customers = set()
+
+    for inv in outstanding_invoices:
+        amt = float(inv["outstanding_amount"])
+        aging["total_receivables"] += amt
+        ref_date = inv["due_date"] or inv["posting_date"] or today
+        if isinstance(ref_date, str):
+            ref_date = datetime.datetime.strptime(ref_date, "%Y-%m-%d").date()
+        days = (today - ref_date).days
+
+        if days <= 30:
+            aging["current_0_30"] += amt
+        elif days <= 60:
+            aging["aging_31_60"] += amt
+            defaulter_customers.add(inv["customer"])
+        elif days <= 90:
+            aging["aging_61_90"] += amt
+            defaulter_customers.add(inv["customer"])
+        else:
+            aging["aging_90_plus"] += amt
+            defaulter_customers.add(inv["customer"])
+
+    aging["defaulters_count"] = len(defaulter_customers)
+
+    # 3. Monthly Revenue Streams (Current Month Invoiced)
+    revenue_streams = frappe.db.sql("""
+        SELECT ii.item_group, 
+               COALESCE(SUM(ii.base_net_amount), 0) as amount
+        FROM `tabSales Invoice Item` ii
+        JOIN `tabSales Invoice` si ON si.name = ii.parent
+        WHERE si.docstatus = 1 AND si.posting_date >= %s
+        GROUP BY ii.item_group
+        ORDER BY amount DESC
+    """, (first_of_this_month,), as_dict=True)
+
+    month_invoiced = sum(float(r["amount"]) for r in revenue_streams)
+
+    # 4. Monthly Collections & Collection Efficiency
+    # Payments received in current month
+    month_collections_res = frappe.db.sql("""
+        SELECT COALESCE(SUM(received_amount), 0) as total_received
+        FROM `tabPayment Entry`
+        WHERE docstatus = 1 
+          AND payment_type = 'Receive' 
+          AND posting_date >= %s
+    """, (first_of_this_month,), as_dict=True)
+    month_collections = float(month_collections_res[0]["total_received"]) if month_collections_res else 0.0
+
+    # UPI Auto-Reconciliation Efficiency
+    reconciled_upi_invoices = frappe.db.sql("""
+        SELECT COUNT(*) as cnt, COALESCE(SUM(grand_total), 0) as total_upi
+        FROM `tabSales Invoice`
+        WHERE docstatus = 1 
+          AND custom_reconciliation_status = 'Reconciled'
+          AND posting_date >= %s
+    """, (first_of_this_month,), as_dict=True)
+
+    total_upi_reconciled = float(reconciled_upi_invoices[0]["total_upi"]) if reconciled_upi_invoices else 0.0
+
+    # 5. Top 5 Defaulter Accounts (For executive intervention)
+    top_defaulters = frappe.db.sql("""
+        SELECT si.customer, cm.member_name, 
+               SUM(si.outstanding_amount) as total_due,
+               COUNT(si.name) as unpaid_bills_count
+        FROM `tabSales Invoice` si
+        LEFT JOIN `tabClub Member` cm ON cm.customer = si.customer
+        WHERE si.docstatus = 1 AND si.outstanding_amount > 0
+        GROUP BY si.customer, cm.member_name
+        ORDER BY total_due DESC
+        LIMIT 5
+    """, as_dict=True)
+
+    # Active membership counts
+    member_stats = frappe.db.sql("""
+        SELECT status, COUNT(*) as count 
+        FROM `tabClub Member` 
+        GROUP BY status
+    """, as_dict=True)
+
+    return {
+        "as_of_date": today.strftime("%d-%b-%Y"),
+        "total_liquidity": total_liquidity,
+        "bank_balances": bank_balances,
+        "aging": aging,
+        "month_invoiced": month_invoiced,
+        "month_collections": month_collections,
+        "total_upi_reconciled": total_upi_reconciled,
+        "revenue_streams": revenue_streams,
+        "top_defaulters": top_defaulters,
+        "member_stats": member_stats
+    }
+

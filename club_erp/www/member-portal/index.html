@@ -470,6 +470,18 @@ body {
                         <div class="tile-sub">Reservations & Passes</div>
                     </div>
                 </div>
+
+                {% if d.is_committee %}
+                <!-- Tile 6: Management Committee Dashboard (Role Restricted) -->
+                <div class="portal-tile-btn" id="tile-committee" onclick="selectTileTab('tab-committee', 'tile-committee'); loadManagementDashboard();" style="border: 1px solid rgba(197, 155, 39, 0.5); background: linear-gradient(135deg, #fffdf5 0%, #ffffff 100%);">
+                    <span class="portal-tile-badge badge-warning" style="background: #c59b27; color: white;">Executive</span>
+                    <span class="tile-icon">🏛️</span>
+                    <div>
+                        <div class="tile-title" style="color: #0d2946;">Committee Desk</div>
+                        <div class="tile-sub">Financials &bull; Aging &bull; KPIs</div>
+                    </div>
+                </div>
+                {% endif %}
             </div>
 
             <div class="tab-content" id="memberPortalTabContent">
@@ -817,6 +829,160 @@ body {
                         </div>
                     </div>
                 </div>
+
+                {% if d.is_committee %}
+                <!-- TAB: Management Committee Executive Financial Dashboard -->
+                <div class="tab-pane fade" id="tab-committee" role="tabpanel">
+                    <div class="portal-card p-4 mb-4" style="border-top: 4px solid #c59b27;">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div>
+                                <h5 class="font-weight-bold text-dark mb-0">🏛️ ROC Management Committee Dashboard</h5>
+                                <span class="small text-muted">Executive Financial Overview &amp; Live Monitoring &bull; As of <span id="mc_as_of">Today</span></span>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="loadManagementDashboard()">
+                                🔄 Refresh
+                            </button>
+                        </div>
+
+                        <!-- Committee KPI Cards Row -->
+                        <div class="row g-3 mb-4">
+                            <!-- Liquidity Balance -->
+                            <div class="col-md-3 col-6 mb-3">
+                                <div class="p-3 rounded border bg-light h-100">
+                                    <div class="small text-muted font-weight-bold mb-1">🏦 Bank &amp; Cash Total</div>
+                                    <h4 class="font-weight-bold text-success mb-1" id="mc_total_liquidity">&#8377;0.00</h4>
+                                    <div class="small text-muted" style="font-size: 0.76rem;">Liquid Treasury Balance</div>
+                                </div>
+                            </div>
+                            <!-- Receivables -->
+                            <div class="col-md-3 col-6 mb-3">
+                                <div class="p-3 rounded border bg-light h-100">
+                                    <div class="small text-muted font-weight-bold mb-1">💳 Total Dues Pending</div>
+                                    <h4 class="font-weight-bold text-danger mb-1" id="mc_total_receivables">&#8377;0.00</h4>
+                                    <div class="small text-muted" style="font-size: 0.76rem;"><span id="mc_defaulters_cnt">0</span> Overdue Members</div>
+                                </div>
+                            </div>
+                            <!-- Monthly Invoiced -->
+                            <div class="col-md-3 col-6 mb-3">
+                                <div class="p-3 rounded border bg-light h-100">
+                                    <div class="small text-muted font-weight-bold mb-1">📈 Billed This Month</div>
+                                    <h4 class="font-weight-bold text-primary mb-1" id="mc_month_invoiced">&#8377;0.00</h4>
+                                    <div class="small text-muted" style="font-size: 0.76rem;">Sales Invoices Raised</div>
+                                </div>
+                            </div>
+                            <!-- Monthly Collections -->
+                            <div class="col-md-3 col-6 mb-3">
+                                <div class="p-3 rounded border bg-light h-100">
+                                    <div class="small text-muted font-weight-bold mb-1">⚡ Collections Recd</div>
+                                    <h4 class="font-weight-bold text-info mb-1" id="mc_month_collections">&#8377;0.00</h4>
+                                    <div class="small text-muted" style="font-size: 0.76rem;">UPI &amp; Bank Payments</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Aging Breakdown Card -->
+                        <div class="card border mb-4" style="border-radius: 12px; overflow: hidden;">
+                            <div class="card-header bg-white font-weight-bold small text-uppercase text-muted py-2">
+                                ⏳ Member Receivables Aging Analysis
+                            </div>
+                            <div class="card-body p-3">
+                                <div class="row text-center">
+                                    <div class="col-6 col-md-3 mb-2">
+                                        <div class="p-2 rounded bg-success-light border border-success">
+                                            <div class="small text-muted font-weight-bold">0 - 30 Days (Current)</div>
+                                            <h5 class="font-weight-bold text-success mb-0" id="mc_age_0_30">&#8377;0.00</h5>
+                                        </div>
+                                    </div>
+                                    <div class="col-6 col-md-3 mb-2">
+                                        <div class="p-2 rounded bg-warning-light border border-warning">
+                                            <div class="small text-muted font-weight-bold">31 - 60 Days</div>
+                                            <h5 class="font-weight-bold text-warning mb-0" id="mc_age_31_60">&#8377;0.00</h5>
+                                        </div>
+                                    </div>
+                                    <div class="col-6 col-md-3 mb-2">
+                                        <div class="p-2 rounded bg-danger-light border border-danger">
+                                            <div class="small text-muted font-weight-bold">61 - 90 Days</div>
+                                            <h5 class="font-weight-bold text-danger mb-0" id="mc_age_61_90">&#8377;0.00</h5>
+                                        </div>
+                                    </div>
+                                    <div class="col-6 col-md-3 mb-2">
+                                        <div class="p-2 rounded border" style="background: #fee2e2; border-color: #ef4444 !important;">
+                                            <div class="small text-muted font-weight-bold">90+ Days (Defaulters)</div>
+                                            <h5 class="font-weight-bold text-danger mb-0" id="mc_age_90_plus">&#8377;0.00</h5>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Two Column Row: Bank Balances & Top Defaulters -->
+                        <div class="row">
+                            <div class="col-md-6 mb-4">
+                                <div class="card border h-100" style="border-radius: 12px;">
+                                    <div class="card-header bg-white font-weight-bold small text-uppercase text-muted py-2">
+                                        🏦 Bank &amp; Cash Accounts
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-striped mb-0 small">
+                                            <thead>
+                                                <tr>
+                                                    <th>Account</th>
+                                                    <th class="text-right">Balance</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="mc_bank_body">
+                                                <tr><td colspan="2" class="text-center text-muted">Loading...</td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-4">
+                                <div class="card border h-100" style="border-radius: 12px;">
+                                    <div class="card-header bg-white font-weight-bold small text-uppercase text-muted py-2">
+                                        ⚠️ Top Overdue Member Accounts
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-striped mb-0 small">
+                                            <thead>
+                                                <tr>
+                                                    <th>Member</th>
+                                                    <th class="text-center">Bills</th>
+                                                    <th class="text-right">Outstanding</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="mc_defaulters_body">
+                                                <tr><td colspan="3" class="text-center text-muted">Loading...</td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Revenue Stream Breakdown -->
+                        <div class="card border" style="border-radius: 12px;">
+                            <div class="card-header bg-white font-weight-bold small text-uppercase text-muted py-2">
+                                📊 Monthly Revenue By Facility / Stream
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-striped mb-0 small">
+                                    <thead>
+                                        <tr>
+                                            <th>Revenue Stream / Category</th>
+                                            <th class="text-right">Invoiced Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="mc_revenue_body">
+                                        <tr><td colspan="2" class="text-center text-muted">Loading...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -1051,6 +1217,70 @@ body {
 </div>
 
 <script>
+
+// Load Management Committee Dashboard Data
+function loadManagementDashboard() {
+    frappe.call({
+        method: "club_erp.api.member_portal.get_management_dashboard_metrics",
+        callback: function(r) {
+            if (r.message) {
+                var d = r.message;
+                var fmt = function(num) {
+                    return parseFloat(num || 0).toLocaleString('en-IN', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    });
+                };
+
+                document.getElementById('mc_as_of').textContent = d.as_of_date;
+                document.getElementById('mc_total_liquidity').textContent = '₹' + fmt(d.total_liquidity);
+                document.getElementById('mc_total_receivables').textContent = '₹' + fmt(d.aging.total_receivables);
+                document.getElementById('mc_defaulters_cnt').textContent = d.aging.defaulters_count;
+                document.getElementById('mc_month_invoiced').textContent = '₹' + fmt(d.month_invoiced);
+                document.getElementById('mc_month_collections').textContent = '₹' + fmt(d.month_collections);
+
+                // Aging
+                document.getElementById('mc_age_0_30').textContent = '₹' + fmt(d.aging.current_0_30);
+                document.getElementById('mc_age_31_60').textContent = '₹' + fmt(d.aging.aging_31_60);
+                document.getElementById('mc_age_61_90').textContent = '₹' + fmt(d.aging.aging_61_90);
+                document.getElementById('mc_age_90_plus').textContent = '₹' + fmt(d.aging.aging_90_plus);
+
+                // Bank balances table
+                var bankHtml = '';
+                if (d.bank_balances && d.bank_balances.length > 0) {
+                    d.bank_balances.forEach(function(b) {
+                        bankHtml += '<tr><td><strong>' + (b.account_name || b.account) + '</strong></td><td class="text-right font-weight-bold ' + (b.balance >= 0 ? 'text-success' : 'text-danger') + '">₹' + fmt(b.balance) + '</td></tr>';
+                    });
+                } else {
+                    bankHtml = '<tr><td colspan="2" class="text-center text-muted">No accounts recorded</td></tr>';
+                }
+                document.getElementById('mc_bank_body').innerHTML = bankHtml;
+
+                // Defaulters table
+                var defHtml = '';
+                if (d.top_defaulters && d.top_defaulters.length > 0) {
+                    d.top_defaulters.forEach(function(def) {
+                        defHtml += '<tr><td><strong>' + (def.member_name || def.customer) + '</strong> <span class="text-muted">(' + def.customer + ')</span></td><td class="text-center">' + def.unpaid_bills_count + '</td><td class="text-right font-weight-bold text-danger">₹' + fmt(def.total_due) + '</td></tr>';
+                    });
+                } else {
+                    defHtml = '<tr><td colspan="3" class="text-center text-muted">Zero overdue accounts!</td></tr>';
+                }
+                document.getElementById('mc_defaulters_body').innerHTML = defHtml;
+
+                // Revenue streams table
+                var revHtml = '';
+                if (d.revenue_streams && d.revenue_streams.length > 0) {
+                    d.revenue_streams.forEach(function(rev) {
+                        revHtml += '<tr><td><strong>' + (rev.item_group || 'General Facilities') + '</strong></td><td class="text-right font-weight-bold text-dark">₹' + fmt(rev.amount) + '</td></tr>';
+                    });
+                } else {
+                    revHtml = '<tr><td colspan="2" class="text-center text-muted">No billings generated this month yet</td></tr>';
+                }
+                document.getElementById('mc_revenue_body').innerHTML = revHtml;
+            }
+        }
+    });
+}
 
 // Function to switch tabs using the Modern Navigation Tiles
 function selectTileTab(tabContentId, tileId) {
