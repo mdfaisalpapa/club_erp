@@ -790,3 +790,71 @@ def get_management_dashboard_metrics(fiscal_year=None):
         "member_stats": member_stats
     }
 
+
+@frappe.whitelist()
+def get_stream_unpaid_invoices(item_group, fiscal_year=None):
+    """Returns unpaid invoices for a specific revenue stream in a fiscal year"""
+    user = frappe.session.user
+    if user == "Guest":
+        frappe.throw(_("Please login to access this data"), frappe.PermissionError)
+
+    user_roles = frappe.get_roles(user)
+    if "Club Management Committee" not in user_roles and "System Manager" not in user_roles and user != "Administrator":
+        frappe.throw(_("Access restricted to Management Committee members"), frappe.PermissionError)
+
+    today = datetime.date.today()
+
+    # Resolve fiscal year
+    fiscal_years = frappe.db.sql("""
+        SELECT name, year_start_date, year_end_date 
+        FROM `tabFiscal Year` 
+        ORDER BY year_start_date DESC
+    """, as_dict=True)
+
+    if not fiscal_year and fiscal_years:
+        fiscal_year = fiscal_years[0]["name"]
+
+    fy_record = next((f for f in fiscal_years if f["name"] == fiscal_year), None)
+    if not fy_record and fiscal_years:
+        fy_record = fiscal_years[0]
+        fiscal_year = fy_record["name"]
+
+    fy_start = fy_record["year_start_date"] if fy_record else datetime.date(today.year, 4, 1)
+    fy_end = fy_record["year_end_date"] if fy_record else datetime.date(today.year + 1, 3, 31)
+
+    query = """
+        SELECT 
+            si.name as invoice_name,
+            si.customer,
+            COALESCE(cm.member_name, si.customer_name, si.customer) as member_name,
+            si.posting_date,
+            si.due_date,
+            si.grand_total,
+            si.outstanding_amount,
+            COALESCE(SUM(ii.base_amount), 0) as stream_amount,
+            COALESCE(si.custom_reconciliation_status, 'Pending Payment') as reconciliation_status,
+            DATEDIFF(CURDATE(), COALESCE(si.due_date, si.posting_date)) as overdue_days
+        FROM `tabSales Invoice` si
+        JOIN `tabSales Invoice Item` ii ON ii.parent = si.name
+        LEFT JOIN `tabClub Member` cm ON cm.customer = si.customer
+        WHERE si.docstatus = 1 
+          AND si.outstanding_amount > 0
+          AND ii.item_group = %s
+          AND si.posting_date BETWEEN %s AND %s
+        GROUP BY si.name, si.customer, cm.member_name, si.customer_name, si.posting_date, si.due_date, si.grand_total, si.outstanding_amount, si.custom_reconciliation_status
+        ORDER BY si.outstanding_amount DESC
+        LIMIT 100
+    """
+    invoices = frappe.db.sql(query, (item_group, fy_start, fy_end), as_dict=True)
+
+    total_stream_outstanding = sum(float(inv["outstanding_amount"]) for inv in invoices)
+
+    return {
+        "item_group": item_group,
+        "fiscal_year": fiscal_year,
+        "count": len(invoices),
+        "total_outstanding": total_stream_outstanding,
+        "invoices": invoices
+    }
+
+

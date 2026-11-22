@@ -1029,6 +1029,66 @@ body {
     {% endif %}
 </div>
 
+<!-- MODAL: Stream Unpaid Invoices Breakdown (Management Committee) -->
+<div class="modal fade" id="streamUnpaidModal" tabindex="-1" role="dialog" aria-hidden="true" style="z-index: 1060;">
+    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 18px; overflow: hidden;">
+            <div class="modal-header text-white" style="background: linear-gradient(135deg, #0d2946 0%, #1a446c 100%); padding: 18px 24px;">
+                <div>
+                    <h5 class="modal-title font-weight-bold text-white mb-0">
+                        📋 Unpaid Invoices &bull; <span id="streamUnpaidTitle">Stream</span>
+                    </h5>
+                    <span class="small text-white-50">
+                        FY <span id="streamUnpaidFy">2026-2027</span> &bull; <span id="streamUnpaidRate" class="badge badge-warning text-dark font-weight-bold">0% Recovery</span>
+                    </span>
+                </div>
+                <button type="button" class="close text-white" data-dismiss="modal" data-bs-dismiss="modal" aria-label="Close" style="background: transparent; border: none; font-size: 1.6rem; opacity: 0.85;">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body p-4">
+                <div id="streamUnpaidLoading" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <div class="small text-muted mt-2">Loading unpaid invoices for this stream...</div>
+                </div>
+
+                <div id="streamUnpaidLoaded" style="display: none;">
+                    <div class="d-flex justify-content-between align-items-center mb-3 p-3 rounded bg-light border">
+                        <div>
+                            <span class="small text-muted d-block font-weight-bold">Total Overdue Invoices:</span>
+                            <strong class="text-dark font-weight-bold" style="font-size: 1.1rem;" id="streamUnpaidCount">0</strong>
+                        </div>
+                        <div class="text-right">
+                            <span class="small text-muted d-block font-weight-bold">Outstanding Dues in Stream:</span>
+                            <strong class="text-danger font-weight-bold" style="font-size: 1.15rem;" id="streamUnpaidTotal">&#8377;0.00</strong>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive" style="max-height: 420px; overflow-y: auto;">
+                        <table class="table table-hover table-sm mb-0">
+                            <thead class="table-light sticky-top small" style="top: 0; z-index: 1;">
+                                <tr>
+                                    <th>Invoice #</th>
+                                    <th>Member Name</th>
+                                    <th>Date / Overdue</th>
+                                    <th class="text-right">Grand Total</th>
+                                    <th class="text-right">Outstanding</th>
+                                </tr>
+                            </thead>
+                            <tbody id="streamUnpaidTableBody" class="small">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light py-2">
+                <button type="button" class="btn btn-secondary btn-sm font-weight-bold px-4" data-dismiss="modal" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- MODAL: Invoice Details & PDF Download -->
 <div class="modal fade" id="invoiceDetailsModal" tabindex="-1" role="dialog" aria-hidden="true" style="z-index: 1060;">
     <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
@@ -1344,11 +1404,11 @@ function loadManagementDashboard(selectedFy) {
                             strHtml += '<td class="text-right font-weight-bold text-dark">₹' + fmt(st.gross_billed) + '</td>';
                             strHtml += '<td class="text-right font-weight-bold text-success">₹' + fmt(st.collected_amount) + '</td>';
                             strHtml += '<td class="text-center">';
-                            strHtml += '  <div class="d-flex align-items-center justify-content-center gap-1">';
-                            strHtml += '    <div class="progress flex-grow-1" style="height: 7px; min-width: 60px; margin-right: 6px; background-color: #e2e8f0; border-radius: 4px;">';
+                            strHtml += '  <div class="d-flex align-items-center justify-content-center gap-1 cursor-pointer" onclick="openStreamUnpaidModal(\'' + encodeURIComponent(st.item_group) + '\', ' + rate + ')" style="cursor: pointer;" title="Click to view unpaid invoices">';
+                            strHtml += '    <div class="progress flex-grow-1" style="height: 8px; min-width: 60px; margin-right: 6px; background-color: #e2e8f0; border-radius: 4px;">';
                             strHtml += '      <div class="progress-bar ' + barClass + '" role="progressbar" style="width: ' + Math.min(rate, 100) + '%;"></div>';
                             strHtml += '    </div>';
-                            strHtml += '    <span class="badge ' + badgeClass + ' font-weight-bold" style="font-size: 0.78rem;">' + rate + '%</span>';
+                            strHtml += '    <span class="badge ' + badgeClass + ' font-weight-bold shadow-sm" style="font-size: 0.8rem; cursor: pointer;">' + rate + '% 🔍</span>';
                             strHtml += '  </div>';
                             strHtml += '</td>';
                             strHtml += '<td class="text-right font-weight-bold ' + (st.outstanding_amount > 0 ? 'text-danger' : 'text-muted') + '">₹' + fmt(st.outstanding_amount) + '</td>';
@@ -1381,6 +1441,79 @@ function loadManagementDashboard(selectedFy) {
                     defHtml = '<tr><td colspan="3" class="text-center text-muted">Zero overdue accounts!</td></tr>';
                 }
                 document.getElementById('mc_defaulters_body').innerHTML = defHtml;
+            }
+        }
+    });
+}
+
+// Function to open Unpaid Invoices Modal for a Stream
+function openStreamUnpaidModal(encodedItemGroup, rate) {
+    var itemGroup = decodeURIComponent(encodedItemGroup);
+    var fySelect = document.getElementById('mc_fiscal_year_select');
+    var fy = (fySelect && fySelect.value) ? fySelect.value : '';
+
+    document.getElementById('streamUnpaidTitle').textContent = itemGroup;
+    document.getElementById('streamUnpaidFy').textContent = fy;
+    document.getElementById('streamUnpaidRate').textContent = rate + '% Recovery';
+    
+    document.getElementById('streamUnpaidLoading').style.display = 'block';
+    document.getElementById('streamUnpaidLoaded').style.display = 'none';
+
+    // Show modal
+    var modalEl = document.getElementById('streamUnpaidModal');
+    if (window.bootstrap && window.bootstrap.Modal) {
+        var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+    } else if (window.$) {
+        $('#streamUnpaidModal').modal('show');
+    }
+
+    frappe.call({
+        method: "club_erp.api.member_portal.get_stream_unpaid_invoices",
+        args: {
+            item_group: itemGroup,
+            fiscal_year: fy
+        },
+        callback: function(r) {
+            document.getElementById('streamUnpaidLoading').style.display = 'none';
+            document.getElementById('streamUnpaidLoaded').style.display = 'block';
+
+            if (r.message) {
+                var d = r.message;
+                var fmt = function(num) {
+                    return parseFloat(num || 0).toLocaleString('en-IN', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    });
+                };
+
+                document.getElementById('streamUnpaidCount').textContent = d.count;
+                document.getElementById('streamUnpaidTotal').textContent = '₹' + fmt(d.total_outstanding);
+
+                var tbody = document.getElementById('streamUnpaidTableBody');
+                var html = '';
+
+                if (d.invoices && d.invoices.length > 0) {
+                    d.invoices.forEach(function(inv) {
+                        var overdueBadge = '';
+                        if (inv.overdue_days > 0) {
+                            overdueBadge = '<span class="badge badge-danger ml-1" style="font-size: 0.72rem;">' + inv.overdue_days + 'd overdue</span>';
+                        } else {
+                            overdueBadge = '<span class="badge badge-success ml-1" style="font-size: 0.72rem;">Current</span>';
+                        }
+
+                        html += '<tr>';
+                        html += '<td><a href="javascript:void(0)" onclick="openInvoiceDetails(\'' + inv.invoice_name + '\')" class="font-weight-bold text-primary">' + inv.invoice_name + '</a></td>';
+                        html += '<td><strong>' + (inv.member_name || inv.customer) + '</strong><br><span class="text-muted small">(' + inv.customer + ')</span></td>';
+                        html += '<td class="small">' + (inv.posting_date || '') + '<br>' + overdueBadge + '</td>';
+                        html += '<td class="text-right font-weight-bold text-dark">₹' + fmt(inv.grand_total) + '</td>';
+                        html += '<td class="text-right font-weight-bold text-danger">₹' + fmt(inv.outstanding_amount) + '</td>';
+                        html += '</tr>';
+                    });
+                } else {
+                    html = '<tr><td colspan="5" class="text-center text-muted py-3">All invoices for this stream are fully settled! 🎉</td></tr>';
+                }
+                tbody.innerHTML = html;
             }
         }
     });
