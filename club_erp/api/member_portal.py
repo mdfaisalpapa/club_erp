@@ -574,3 +574,14 @@ def download_member_invoice_pdf(invoice_name):
     frappe.local.response.filename = filename
     frappe.local.response.filecontent = pdf_bytes
     frappe.local.response.type = "pdf"
+
+
+def handle_post_login(login_manager):
+    """Redirects Website Users directly to /member-portal upon login"""
+    user = login_manager.user
+    user_type = frappe.db.get_value("User", user, "user_type")
+    if user_type == "Website User":
+        redirect_target = "/member-portal"
+        frappe.local.response["home_page"] = redirect_target
+        frappe.local.response["redirect_to"] = redirect_target
+        frappe.cache.hset("redirect_after_login", user, redirect_target)

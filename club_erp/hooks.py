@@ -269,3 +269,5 @@ doc_events = {
         "on_update": "club_erp.club_erp.doctype.club_member.club_member.update_member_on_subscription_save"
     }
 }
+
+on_login = "club_erp.api.member_portal.handle_post_login"
