@@ -33,15 +33,18 @@ def get_odoo_connection():
     models = xmlrpc.client.ServerProxy(f"{ODOO_CONFIG['url']}/xmlrpc/2/object")
     return uid, models
 
-def resolve_odoo_customer(partner_id, partner_name, partner_ref=None):
+def resolve_odoo_customer(partner_id, partner_name, partner_ref=None, odoo_move_name=None):
     """
-    Safely resolves or creates the ERPNext Customer corresponding to an Odoo Partner:
+    Strict customer resolver:
     1. Match by partner_ref (Member ID in Odoo)
     2. Match by custom_odoo_id or custom_odoo_ref in Customer doctype
     3. Match by exact customer_name
     4. Match by partner_id
-    5. Fallback: Creates an explicit new customer named after partner_ref or partner_id.
-       NEVER hardcodes or defaults to any existing member account!
+    
+    STRICT POLICY:
+    - NO GUESSING OR FALLBACK TO ANY OTHER MEMBER!
+    - If no customer can be unambiguously resolved, raise an explicit ValidationError so
+      the sync fails loudly for that invoice rather than corrupting member accounts.
     """
     if partner_ref and partner_ref != 'False':
         clean_ref = str(partner_ref).strip()
@@ -65,22 +68,19 @@ def resolve_odoo_customer(partner_id, partner_name, partner_ref=None):
     if frappe.db.exists("Customer", str(partner_id)):
         return str(partner_id)
 
-    # Isolated new customer creation (Zero risk of cross-pollinating existing members)
-    cust_id = str(partner_ref) if (partner_ref and partner_ref != 'False') else f"CUST-ODOO-{partner_id}"
-    if not frappe.db.exists("Customer", cust_id):
-        cg = frappe.get_all("Customer Group", limit=1)[0].name
-        terr = frappe.get_all("Territory", limit=1)[0].name
-        c = frappe.new_doc("Customer")
-        c.name = cust_id
-        c.customer_name = partner_name or f"Partner {partner_id}"
-        c.customer_group = cg
-        c.territory = terr
-        c.customer_type = "Individual"
-        c.custom_odoo_id = partner_id
-        c.custom_odoo_ref = str(partner_ref) if partner_ref else ""
-        c.insert(ignore_permissions=True)
-        return c.name
-    return cust_id
+    # If it is a walk-in / guest without a member account, check if Walk-in / Guest Customer exists
+    if not partner_name or "walk-in" in str(partner_name).lower():
+        if frappe.db.exists("Customer", "Walk-in Customer"):
+            return "Walk-in Customer"
+
+    # Strictly raise error: DO NOT guess, DO NOT assign to random member, DO NOT silently create
+    inv_info = f" [Odoo Move: {odoo_move_name}]" if odoo_move_name else ""
+    err = (
+        f"Unresolved Customer{inv_info}: Could not find Customer for Odoo Partner ID: {partner_id}, "
+        f"Ref: '{partner_ref}', Name: '{partner_name}'. Sync stopped for this invoice to prevent incorrect data."
+    )
+    logger.error(err)
+    raise frappe.ValidationError(err)
 
 def sync_daily_invoices(days_back=3):
     today = datetime.date.today()
@@ -163,7 +163,7 @@ def sync_invoices_between(from_date, to_date):
             partner_name = inv["partner_id"][1] if inv["partner_id"] else "Walk-in Customer"
             partner_ref = p_map.get(partner_id, {}).get("ref")
 
-            customer = resolve_odoo_customer(partner_id, partner_name, partner_ref)
+            customer = resolve_odoo_customer(partner_id, partner_name, partner_ref, odoo_move_name=inv_name)
 
             series = "I/26-27/.#####"
 
